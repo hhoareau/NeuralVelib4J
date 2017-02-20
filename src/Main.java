@@ -11,28 +11,44 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.glassfish.jersey.client.JerseyInvocation;
 import spark.Spark;
 
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 
 public class Main {
 
-    public static void init(){
+    static SparkSession spark=null;
 
-        SparkSession spark = SparkSession
-                .builder()
-                .master("local")
-                .appName("Java Spark SQL basic example")
-                .getOrCreate();
+    public static Row createRow(JsonNode jnode,Integer temperature){
+        Integer nPlace=jnode.get("available_bike_stands").asInt();
+        Double position= Double.valueOf(jnode.get("position").asText().split(",")[0]);
+        Long id=jnode.get("id").asLong();
+        Row rc=RowFactory.create(nPlace,Vectors.dense(id, position, 0.1));
+        return rc;
+    }
 
-        List<Row> dataTraining = Arrays.asList(
-                RowFactory.create(1.0, Vectors.dense(0.0, 1.1, 0.1)),
-                RowFactory.create(0.0, Vectors.dense(2.0, 1.0, -1.0)),
-                RowFactory.create(0.0, Vectors.dense(2.0, 1.3, 1.0)),
-                RowFactory.create(1.0, Vectors.dense(0.0, 1.2, -0.5))
-        );
+    public static void init(List<Row> dataTraining ){
+
+        spark= SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
+
+
         StructType schema = new StructType(new StructField[]{
                 new StructField("label", DataTypes.DoubleType, false, Metadata.empty()),
                 new StructField("features", new VectorUDT(), false, Metadata.empty())
@@ -95,8 +111,36 @@ public class Main {
 
     public static void main(String[] args) {
         Spark.port(8080);
+
+        Spark.get("/getdata", (request, response) -> {
+            return "ok";
+        });
+
         Spark.get("/init", (request, response) -> {
-            init();
+
+            FileInputStream f=new FileInputStream("stations-velib-disponibilites-en-temps-reel.json");
+            int code=200;
+            /*
+            Client client = ClientBuilder.newClient();
+            WebTarget target = client.target("http://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download/?format=json&timezone=Europe/Berlin");
+            Response r=target.request(MediaType.APPLICATION_JSON).get();
+            Integer code=r.getStatus();
+            */
+
+            if(code==200){
+                //JsonNode jsonNode=map.readTree(r.readEntity(InputStream.class));
+                JsonNode jsonNode=new ObjectMapper().readTree(new InputStreamReader(f));
+                List<Row> rc= new ArrayList<>();
+
+                Iterator<JsonNode> ite=jsonNode.getElements();
+                while(ite.hasNext())
+                    rc.add(createRow(ite.next().get("fields"),10));
+
+                init(rc);
+            }
+
+
+
             return "ok";
         });
     }
