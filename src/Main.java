@@ -1,33 +1,24 @@
-import org.apache.spark.ml.classification.LogisticRegression;
-import org.apache.spark.ml.classification.LogisticRegressionModel;
-import org.apache.spark.ml.linalg.VectorUDT;
-import org.apache.spark.ml.linalg.Vectors;
-import org.apache.spark.ml.param.ParamMap;
+import org.apache.spark.ml.classification.MultilayerPerceptronClassificationModel;
+import org.apache.spark.ml.classification.MultilayerPerceptronClassifier;
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
+import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.Metadata;
-import org.apache.spark.sql.types.StructField;
-import org.apache.spark.sql.types.StructType;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.glassfish.jersey.client.JerseyInvocation;
 import spark.Spark;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -36,111 +27,88 @@ public class Main {
 
     static SparkSession spark=null;
 
-    public static Row createRow(JsonNode jnode,Integer temperature){
-        Integer nPlace=jnode.get("available_bike_stands").asInt();
-        Double position= Double.valueOf(jnode.get("position").asText().split(",")[0]);
-        Long id=jnode.get("id").asLong();
-        Row rc=RowFactory.create(nPlace,Vectors.dense(id, position, 0.1));
-        return rc;
+
+    public static void init(Dataset<Row> stations){
+
+
+        VectorAssembler assembler = new VectorAssembler()
+                .setInputCols(new String[]{"id","day", "hour","month","minute","temperature"})
+                .setOutputCol("features");
+
+        Dataset<Row> rows=assembler.transform(stations);
+        rows=rows.drop(new String[]{"id","day", "hour", "lg","lt","month","minute","temperature"});
+        rows.show();
+
+        Dataset<Row>[] splits = rows.randomSplit(new double[]{0.6, 0.4}, 1234L);
+        Dataset<Row> train = splits[0];
+        Dataset<Row> test = splits[1];
+
+// specify layers for the neural network:
+// input layer of size 4 (features), two intermediate of size 5 and 4
+// and output of size 3 (classes)
+        int[] layers = new int[] {6, 5, 4, 1};
+
+// create the trainer and set its parameters
+        MultilayerPerceptronClassifier trainer = new MultilayerPerceptronClassifier()
+                .setLayers(layers)
+                .setLabelCol("nPlace")
+                .setBlockSize(128)
+                .setSeed(1234L)
+                .setMaxIter(100);
+
+// train the model
+        MultilayerPerceptronClassificationModel model = trainer.fit(train);
+
+// compute accuracy on the test set
+        Dataset<Row> result = model.transform(test);
+        Dataset<Row> predictionAndLabels = result.select("prediction", "label");
+        MulticlassClassificationEvaluator evaluator = new MulticlassClassificationEvaluator()
+                .setMetricName("accuracy");
+
     }
 
-    public static void init(List<Row> dataTraining ){
+    public static JsonNode getData(String str)  {
+        try {
+            if(str.startsWith("http")){
+                Client client = ClientBuilder.newClient();
+                WebTarget target = client.target(str);
+                Response r=target.request(MediaType.APPLICATION_JSON).get();
+                Integer code=r.getStatus();
+                if(code==200){
+                    return new ObjectMapper().readTree(new InputStreamReader(r.readEntity(InputStream.class)));
+                }
+            } else {
+                FileInputStream f=new FileInputStream(str);
+                return new ObjectMapper().readTree(new InputStreamReader(f));
+            }
 
-        spark= SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
-
-
-        StructType schema = new StructType(new StructField[]{
-                new StructField("label", DataTypes.DoubleType, false, Metadata.empty()),
-                new StructField("features", new VectorUDT(), false, Metadata.empty())
-        });
-
-        Dataset<Row> training = spark.createDataFrame(dataTraining, schema);
-
-        // Create a LogisticRegression instance. This instance is an Estimator.
-        LogisticRegression lr = new LogisticRegression();
-// Print out the parameters, documentation, and any default values.
-        System.out.println("LogisticRegression parameters:\n" + lr.explainParams() + "\n");
-
-// We may set parameters using setter methods.
-        lr.setMaxIter(10).setRegParam(0.01);
-
-// Learn a LogisticRegression model. This uses the parameters stored in lr.
-        LogisticRegressionModel model1 = lr.fit(training);
-// Since model1 is a Model (i.e., a Transformer produced by an Estimator),
-// we can view the parameters it used during fit().
-// This prints the parameter (name: value) pairs, where names are unique IDs for this
-// LogisticRegression instance.
-        System.out.println("Model 1 was fit using parameters: " + model1.parent().extractParamMap());
-
-// We may alternatively specify parameters using a ParamMap.
-        ParamMap paramMap = new ParamMap()
-                .put(lr.maxIter().w(20))  // Specify 1 Param.
-                .put(lr.maxIter(), 30)  // This overwrites the original maxIter.
-                .put(lr.regParam().w(0.1), lr.threshold().w(0.55));  // Specify multiple Params.
-
-// One can also combine ParamMaps.
-        ParamMap paramMap2 = new ParamMap()
-                .put(lr.probabilityCol().w("myProbability"));  // Change output column name
-        ParamMap paramMapCombined = paramMap.$plus$plus(paramMap2);
-
-// Now learn a new model using the paramMapCombined parameters.
-// paramMapCombined overrides all parameters set earlier via lr.set* methods.
-        LogisticRegressionModel model2 = lr.fit(training, paramMapCombined);
-        System.out.println("Model 2 was fit using parameters: " + model2.parent().extractParamMap());
-
-    // Prepare test documents.
-        List<Row> dataTest = Arrays.asList(
-                RowFactory.create(1.0, Vectors.dense(-1.0, 1.5, 1.3)),
-                RowFactory.create(0.0, Vectors.dense(3.0, 2.0, -0.1)),
-                RowFactory.create(1.0, Vectors.dense(0.0, 2.2, -1.5))
-        );
-        Dataset<Row> test = spark.createDataFrame(dataTest, schema);
-
-// Make predictions on test documents using the Transformer.transform() method.
-// LogisticRegression.transform will only use the 'features' column.
-// Note that model2.transform() outputs a 'myProbability' column instead of the usual
-// 'probability' column since we renamed the lr.probabilityCol parameter previously.
-        Dataset<Row> results = model2.transform(test);
-        Dataset<Row> rows = results.select("features", "label", "myProbability", "prediction");
-        for (Row r: rows.collectAsList()) {
-            System.out.println("(" + r.get(0) + ", " + r.get(1) + ") -> prob=" + r.get(2)
-                    + ", prediction=" + r.get(3));
+        } catch (IOException e) {
+            e.printStackTrace();
         }
+        return null;
+    }
 
+    public static Dataset<Row> createTrain(JsonNode jsonNode){
+        List<Station> stations= new ArrayList<>();
+
+        Iterator<JsonNode> ite=jsonNode.getElements();
+        while(ite.hasNext())
+            stations.add(new Station(ite.next().get("fields"),10, System.currentTimeMillis()));
+
+        return spark.createDataFrame(stations,Station.class);
     }
 
     public static void main(String[] args) {
         Spark.port(8080);
+        spark= SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
+
+        init(createTrain(getData("stations-velib-disponibilites-en-temps-reel.json")));
 
         Spark.get("/getdata", (request, response) -> {
             return "ok";
         });
 
         Spark.get("/init", (request, response) -> {
-
-            FileInputStream f=new FileInputStream("stations-velib-disponibilites-en-temps-reel.json");
-            int code=200;
-            /*
-            Client client = ClientBuilder.newClient();
-            WebTarget target = client.target("http://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download/?format=json&timezone=Europe/Berlin");
-            Response r=target.request(MediaType.APPLICATION_JSON).get();
-            Integer code=r.getStatus();
-            */
-
-            if(code==200){
-                //JsonNode jsonNode=map.readTree(r.readEntity(InputStream.class));
-                JsonNode jsonNode=new ObjectMapper().readTree(new InputStreamReader(f));
-                List<Row> rc= new ArrayList<>();
-
-                Iterator<JsonNode> ite=jsonNode.getElements();
-                while(ite.hasNext())
-                    rc.add(createRow(ite.next().get("fields"),10));
-
-                init(rc);
-            }
-
-
-
             return "ok";
         });
     }
