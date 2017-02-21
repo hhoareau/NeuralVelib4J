@@ -30,14 +30,15 @@ public class Main {
 
     public static void init(Dataset<Row> stations){
 
+        stations.show(20,false);
 
         VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new String[]{"id","day", "hour","month","minute","temperature"})
+                .setInputCols(new String[]{"day", "hour","month","minute","temperature"})
                 .setOutputCol("features");
 
         Dataset<Row> rows=assembler.transform(stations);
         rows=rows.drop(new String[]{"id","day", "hour", "lg","lt","month","minute","temperature"});
-        rows.show();
+        rows.show(20,false);
 
         Dataset<Row>[] splits = rows.randomSplit(new double[]{0.6, 0.4}, 1234L);
         Dataset<Row> train = splits[0];
@@ -46,14 +47,14 @@ public class Main {
 // specify layers for the neural network:
 // input layer of size 4 (features), two intermediate of size 5 and 4
 // and output of size 3 (classes)
-        int[] layers = new int[] {6, 5, 4, 1};
+        int[] layers = new int[] {6, 5, 4, 3};
 
 // create the trainer and set its parameters
         MultilayerPerceptronClassifier trainer = new MultilayerPerceptronClassifier()
                 .setLayers(layers)
-                .setLabelCol("nPlace")
                 .setBlockSize(128)
                 .setSeed(1234L)
+                .setLabelCol("nPlace")
                 .setMaxIter(100);
 
 // train the model
@@ -93,7 +94,7 @@ public class Main {
 
         Iterator<JsonNode> ite=jsonNode.getElements();
         while(ite.hasNext())
-            stations.add(new Station(ite.next().get("fields"),10, System.currentTimeMillis()));
+            stations.add(new Station(ite.next().get("fields"),10.0, System.currentTimeMillis()));
 
         return spark.createDataFrame(stations,Station.class);
     }
