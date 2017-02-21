@@ -9,10 +9,19 @@ import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 import spark.Spark;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -24,14 +33,8 @@ public class Main {
 
     static SparkSession spark=null;
 
-    public static void train(MultilayerPerceptronClassifier trainer,Dataset<Row> stations){
-        VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new String[]{"id","lt","lg","day", "hour","month","minute","temperature"})
-                .setOutputCol("features");
-        Dataset<Row> rows=assembler.transform(stations);
-        Dataset<Row>[] splits = rows.randomSplit(new double[]{0.6, 0.4},1234L);
-
-        MultilayerPerceptronClassificationModel model = trainer.fit(rows);
+    public static MultilayerPerceptronClassificationModel train(MultilayerPerceptronClassifier trainer,Dataset<Row> stations){
+        return trainer.fit(stations);
     }
 
 
@@ -93,14 +96,14 @@ public class Main {
     }
 
 
-    public static JsonNode getData(String str)  {
+    //https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json
+    public static JsonNode getData(String str) throws IOException {
         try {
             if(str.startsWith("http")){
-                Response r=ClientBuilder.newClient().target(str).request(MediaType.APPLICATION_JSON).get();
-                Integer code=r.getStatus();
-                if(code==200){
-                    return new ObjectMapper().readTree(new InputStreamReader(r.readEntity(InputStream.class)));
-                }
+                URL url = new URL(str);
+                URLConnection connection = url.openConnection();
+                InputStream is = connection.getInputStream();
+                return new ObjectMapper().readTree(is);
             } else {
                 FileInputStream f=new FileInputStream(str);
                 return new ObjectMapper().readTree(new InputStreamReader(f));
@@ -129,47 +132,98 @@ public class Main {
         while(ite.hasNext())
             stations.add(new Station(ite.next().get("fields"), data.get("temperature"), System.currentTimeMillis()));
 
+        //stations=stations.subList(0,10);
+
         Dataset<Row> rc=spark.createDataFrame(stations,Station.class);
-        return rc.persist();
+        rc.persist();
+
+        VectorAssembler assembler = new VectorAssembler()
+                .setInputCols(new Station().getCols())
+                .setOutputCol("features");
+
+        return assembler.transform(rc);
     }
 
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     public static MultilayerPerceptronClassifier trainer=null;
 
-    public static void main(String[] args) throws IOException {
+    public static void createCertificate() throws NoSuchAlgorithmException, KeyManagementException {
+        TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+                    public void checkClientTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType) {
+                    }
+                    public void checkServerTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType) {
+                    }
+                }
+        };
+
+        SSLContext sc = SSLContext.getInstance("SSL");
+        sc.init(null, trustAllCerts, new java.security.SecureRandom());
+        HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+    }
+
+
+    public static MultilayerPerceptronClassificationModel model=null;
+
+    public static String showWeights(MultilayerPerceptronClassificationModel model){
+        String s="";
+        for(Double d:model.weights().toArray())s=s+"w="+d+"<br>";
+        return s;
+    }
+
+    public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException {
         Spark.port(8080);
+
+        createCertificate();
 
         // create the trainer and set its parameters
         trainer = new MultilayerPerceptronClassifier()
-                .setLayers(new int[] {8, 5, 4, 3})
+                .setLayers(new int[] {new Station().getCols().length,8,7,3})
                 .setBlockSize(128)
                 .setSeed(1234L)
                 .setLabelCol("nPlace")
                 .setMaxIter(1000);
 
+        spark= SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
 
         final Runnable commandRefresh = new Runnable() {
             public void run() {
                 try {
-                    train(trainer,createTrain(getData("stations-velib-disponibilites-en-temps-reel.json")));
+                    //String url="https://api.jcdecaux.com/vls/v1/stations/{station_number}?contract=030b9a75c4671dad26255107f2c93dbf710f7bdc";
+                    model=train(trainer,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json")));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                scheduler.schedule(this,5, TimeUnit.MINUTES);
+                scheduler.schedule(this,2, TimeUnit.MINUTES);
             }
         };
         scheduler.schedule(commandRefresh,0,TimeUnit.MINUTES);
 
-
-        spark= SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
-
-        Spark.get("/getdata", (request, response) -> {
-            return "ok";
+        //test : http://localhost:8080/use/1022/21/16/0
+        Spark.get("/use/:station/:day/:hour/:soleil", (request, response) -> {
+            Station station=new Station(request.params("station"),request.params("day"),request.params("hour"),Double.valueOf(request.params("soleil")));
+            return model.predict(station.toVector());
         });
 
-        Spark.get("/init", (request, response) -> {
-            return "ok";
+
+        Spark.get("/evaluate", (request, response) -> {
+            return evaluate(model,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json")));
+        });
+
+        Spark.get("/train", (request, response) -> {
+            Dataset<Row> datas = createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json"));
+            model=train(trainer,datas);
+            return evaluate(model,datas);
+        });
+
+        Spark.get("/weights", (request, response) -> {
+            return showWeights(model);
         });
     }
 
