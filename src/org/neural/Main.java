@@ -1,6 +1,9 @@
+package org.neural;
+
 import org.apache.spark.ml.classification.MultilayerPerceptronClassificationModel;
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier;
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
+import org.apache.spark.ml.feature.Normalizer;
 import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -14,7 +17,6 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.*;
@@ -27,10 +29,13 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 
 public class Main {
 
+    private static List<Station> stations=new ArrayList<>();
+    private static Logger logger = Logger.getLogger(String.valueOf(Main.class));
     static SparkSession spark=null;
 
     public static MultilayerPerceptronClassificationModel train(MultilayerPerceptronClassifier trainer,Dataset<Row> stations){
@@ -97,12 +102,23 @@ public class Main {
 
 
     //https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json
-    public static JsonNode getData(String str) throws IOException {
+    public static JsonNode getData(String str,String copy) throws IOException {
         try {
             if(str.startsWith("http")){
                 URL url = new URL(str);
                 URLConnection connection = url.openConnection();
                 InputStream is = connection.getInputStream();
+                String s="";
+                if(copy!=null){
+                    FileOutputStream f=new FileOutputStream(copy);
+                    int read = 0;
+                    byte[] bytes = new byte[1024];
+                    while ((read = is.read(bytes)) != -1) {
+                        f.write(bytes, 0, read);
+                    }
+                    f.close();
+                    return new ObjectMapper().readTree(new FileInputStream(new File(copy)));
+                }
                 return new ObjectMapper().readTree(is);
             } else {
                 FileInputStream f=new FileInputStream(str);
@@ -122,7 +138,7 @@ public class Main {
 
 
     public static Dataset<Row> createTrain(JsonNode jsonNode) throws IOException {
-        List<Station> stations= new ArrayList<>();
+        List<Station> l_stations= new ArrayList<>();
 
         Iterator<JsonNode> ite=jsonNode.getElements();
         Double temperature=0.0;
@@ -130,18 +146,27 @@ public class Main {
         Map<String,Double> data=getMeteo(new Date(System.currentTimeMillis()));
 
         while(ite.hasNext())
-            stations.add(new Station(ite.next().get("fields"), data.get("temperature"), System.currentTimeMillis()));
+            l_stations.add(new Station(ite.next().get("fields"), data.get("temperature"), System.currentTimeMillis()));
 
-        //stations=stations.subList(0,10);
-
-        Dataset<Row> rc=spark.createDataFrame(stations,Station.class);
+        if(stations.size()==0)stations.addAll(l_stations);
+        Dataset<Row> rc=spark.createDataFrame(l_stations, Station.class);
         rc.persist();
 
+        //rc.show(20,false);
         VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new Station().getCols())
-                .setOutputCol("features");
+                .setInputCols(new Station().colsName())
+                .setOutputCol("tempFeatures");
+        rc=assembler.transform(rc);
+        //rc.show(20,false);
 
-        return assembler.transform(rc);
+        Normalizer normalizer = new Normalizer()
+                .setInputCol("tempFeatures")
+                .setOutputCol("features")
+                .setP(1.0);
+        rc=normalizer.transform(rc);
+        //rc.show(20,false);
+
+        return rc;
     }
 
 
@@ -149,6 +174,7 @@ public class Main {
     public static MultilayerPerceptronClassifier trainer=null;
 
     public static void createCertificate() throws NoSuchAlgorithmException, KeyManagementException {
+
         TrustManager[] trustAllCerts = new TrustManager[]{
                 new X509TrustManager() {
                     public java.security.cert.X509Certificate[] getAcceptedIssuers() {
@@ -178,13 +204,15 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException {
-        Spark.port(8080);
+        logger.info("Ouverture du port 9999");
+        Spark.port(9999);
 
+        logger.info("Creation d'un certificat pour la navigation https");
         createCertificate();
 
         // create the trainer and set its parameters
         trainer = new MultilayerPerceptronClassifier()
-                .setLayers(new int[] {new Station().getCols().length,8,7,3})
+                .setLayers(new int[] {new Station().colsName().length,200,150,3})
                 .setBlockSize(128)
                 .setSeed(1234L)
                 .setLabelCol("nPlace")
@@ -196,35 +224,59 @@ public class Main {
             public void run() {
                 try {
                     //String url="https://api.jcdecaux.com/vls/v1/stations/{station_number}?contract=030b9a75c4671dad26255107f2c93dbf710f7bdc";
-                    model=train(trainer,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json")));
+                    String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
+                    if(horaire.endsWith("0") || horaire.endsWith("5")){
+                        String copyPath="velib_"+System.currentTimeMillis()+".json";
+                        model=train(trainer,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",copyPath)));
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                scheduler.schedule(this,2, TimeUnit.MINUTES);
+                scheduler.schedule(this,1, TimeUnit.MINUTES);
             }
         };
         scheduler.schedule(commandRefresh,0,TimeUnit.MINUTES);
 
-        //test : http://localhost:8080/use/1022/21/16/0
+        //test : http://localhost:9999/use/PARADIS/21/16/0
         Spark.get("/use/:station/:day/:hour/:soleil", (request, response) -> {
-            Station station=new Station(request.params("station"),request.params("day"),request.params("hour"),Double.valueOf(request.params("soleil")));
-            return model.predict(station.toVector());
+            for(Station s:stations)
+                if(s.getName().indexOf(request.params("station"))>0){
+                    Station station=new Station(s.getId(),request.params("day"),request.params("hour"),Double.valueOf(request.params("soleil")));
+                    org.apache.spark.ml.linalg.Vector v=station.toVector().toDense();
+                    if(model.numFeatures()==v.size())
+                        return model.predict(v);
+                    else
+                        return "ecart de dimension "+model.numFeatures()+" et input "+v.size();
+                }
+            return "Aucune station";
         });
 
 
         Spark.get("/evaluate", (request, response) -> {
-            return evaluate(model,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json")));
+            return evaluate(model,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",null)));
         });
 
         Spark.get("/train", (request, response) -> {
-            Dataset<Row> datas = createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json"));
-            model=train(trainer,datas);
-            return evaluate(model,datas);
+            File dir=new File(".");
+            Dataset<Row> dataset=null;
+            for(File f:dir.listFiles()){
+                if(f.getName().indexOf(".json")>0){
+                    Dataset<Row> dt = createTrain(getData(f.getName(), null));
+                    if(dataset==null)
+                        dataset=dt;
+                    else
+                        dataset=dataset.union(dt);
+                }
+            }
+            model=train(trainer,dataset);
+            return evaluate(model,dataset);
         });
 
         Spark.get("/weights", (request, response) -> {
             return showWeights(model);
         });
     }
+
+
 
 }

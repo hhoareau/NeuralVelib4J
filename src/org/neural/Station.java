@@ -1,8 +1,10 @@
+package org.neural;
+
 import org.apache.spark.ml.linalg.DenseVector;
-import org.apache.spark.ml.linalg.SparseVector;
 import org.apache.spark.ml.linalg.Vector;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
+
 import java.util.Date;
 
 /**
@@ -10,18 +12,19 @@ import java.util.Date;
  */
 public class Station implements Serializable {
     Long id=0L;
-
+    String name="";
     Double lt=0.0;
     Double lg=0.0;
     Double soleil=1.0;
-    Double month=0.0;
-    Double minute=0.0;
-    Double day=0.0;
-    Double hour=0.0;
+    Integer month=0;
+    Integer minute=0;
+    Integer day=0;
+    Integer hour=0;
     Double nPlace=0.0; //0,1 ou 2
 
     public Station(JsonNode jnode, Double temperature, Long dt){
         this.id=jnode.get("number").asLong();
+        this.name=jnode.get("name").asText();
 
         this.nPlace=jnode.get("available_bike_stands").asDouble();
         if(this.nPlace>0 && this.nPlace<10)this.nPlace=1.0;
@@ -32,18 +35,18 @@ public class Station implements Serializable {
 
         if(temperature<15)soleil=0.0; else soleil=1.0;
 
-        this.day=new Date(dt).getDay()/7.0;
-        this.minute=new Date(dt).getMinutes()/60.0;
-        this.month=new Date(dt).getMonth()/12.0;
-        this.hour=new Date(dt).getHours()/24.0;
+        this.day=new Date(dt).getDay();
+        this.minute=new Date(dt).getMinutes();
+        this.month=new Date(dt).getMonth();
+        this.hour=new Date(dt).getHours();
 
         //this.features=new SparseVector(6,new int[]{0,1,2,3,4,5},new double[]{this.day,this.minute,this.month,this.day,this.temperature,this.id});
     }
 
-    public Station(String station, String day, String hour, Double soleil) {
-        this.id= Long.valueOf(station);
-        this.day=Double.valueOf(day)/7.0;
-        this.hour=Double.valueOf(hour)/24.0;
+    public Station(Long station, String day, String hour, Double soleil) {
+        this.id= station;
+        this.day=Integer.valueOf(day);
+        this.hour=Integer.valueOf(hour);
         this.soleil=soleil;
     }
 
@@ -83,35 +86,43 @@ public class Station implements Serializable {
         this.soleil = soleil;
     }
 
-    public Double getMonth() {
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Integer getMonth() {
         return month;
     }
 
-    public void setMonth(Double month) {
+    public void setMonth(Integer month) {
         this.month = month;
     }
 
-    public Double getMinute() {
+    public Integer getMinute() {
         return minute;
     }
 
-    public void setMinute(Double minute) {
+    public void setMinute(Integer minute) {
         this.minute = minute;
     }
 
-    public Double getDay() {
+    public Integer getDay() {
         return day;
     }
 
-    public void setDay(Double day) {
+    public void setDay(Integer day) {
         this.day = day;
     }
 
-    public Double getHour() {
+    public Integer getHour() {
         return hour;
     }
 
-    public void setHour(Double hour) {
+    public void setHour(Integer hour) {
         this.hour = hour;
     }
 
@@ -124,11 +135,11 @@ public class Station implements Serializable {
     }
 
     public Vector toVector() {
-        DenseVector v=new DenseVector(new double[]{this.id,this.day,this.month,this.minute,this.soleil});
+        DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.month,this.minute,this.soleil});
         return v;
     }
 
-    public String[] getCols() {
+    public String[] colsName() {
         return new String[]{"id","day","hour","month","minute","soleil"};
     }
 }
