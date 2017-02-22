@@ -5,6 +5,7 @@ import org.apache.spark.ml.linalg.Vector;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
@@ -43,10 +44,12 @@ public class Station implements Serializable {
         //this.features=new SparseVector(6,new int[]{0,1,2,3,4,5},new double[]{this.day,this.minute,this.month,this.day,this.temperature,this.id});
     }
 
-    public Station(Long station, String day, String hour, Double soleil) {
+    public Station(Long station, String name,Integer day, Integer hour, Integer minute,Double soleil) {
         this.id= station;
-        this.day=Integer.valueOf(day);
-        this.hour=Integer.valueOf(hour);
+        this.name=name;
+        this.day=day;
+        this.hour=hour;
+        this.minute=minute;
         this.soleil=soleil;
     }
 
@@ -131,7 +134,10 @@ public class Station implements Serializable {
     }
 
     public void setnPlace(Double nPlace) {
-        this.nPlace = nPlace;
+        Double rc=0.0;
+        if(nPlace>0 && nPlace<10)rc=1.0;
+        if(nPlace>10)rc=2.0;
+        this.nPlace = rc;
     }
 
     public Vector toVector() {
@@ -141,5 +147,16 @@ public class Station implements Serializable {
 
     public String[] colsName() {
         return new String[]{"id","day","hour","month","minute","soleil"};
+    }
+
+    public String toHTML(){
+        String html="<h1>"+this.name+"</h1>";
+        html+=this.hour+":"+this.minute+"<br>";
+
+        String place="aucun vélo";
+        if(this.nPlace==1)place="entre 1 et 10 vélos";
+        if(this.nPlace==2)place="plus de 10 vélos";
+        html+=place;
+        return html;
     }
 }
