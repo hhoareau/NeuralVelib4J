@@ -1,6 +1,5 @@
 package org.neural;
 
-import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
@@ -16,8 +15,6 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.SerializationConfig;
-import scala.Array;
 import spark.Spark;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -34,13 +31,10 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
-import static com.fasterxml.jackson.databind.SerializationFeature.FAIL_ON_EMPTY_BEANS;
 
 public class Main {
 
@@ -65,14 +59,14 @@ public class Main {
 
 
 
-    public static Pipeline createPipeline()  {
+    public static Pipeline createPipeline(Integer iter)  {
         // create the trainer and set its parameters
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
-                .setLayers(new int[] {new Station().colsName().length,10,10,3})
+                .setLayers(new int[] {new Station().colsName().length,50,50,3})
                 .setBlockSize(128)
                 .setSeed(1234L)
                 .setLabelCol("nPlace")
-                .setMaxIter(10);
+                .setMaxIter(iter);
 
         load(mlp);
 
@@ -114,8 +108,8 @@ public class Main {
     }
 
 
-    public static String evaluate(PipelineModel model, Dataset<Row> test){
-        Dataset<Row> result = model.transform(test);
+    public static String evaluate(PipelineModel model) throws IOException {
+        Dataset<Row> result = model.transform(createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",null)));
         Dataset<Row> predictionAndLabels = result.select("prediction", "nPlace");
 
         String rc="";
@@ -125,7 +119,8 @@ public class Main {
 
         // Confusion matrix
         Matrix confusion = metrics.confusionMatrix();
-        rc+="Confusion matrix: \n" + toHTML(confusion);
+
+        rc+="Confusion matrix: \n" + toHTML(confusion)+"<br><br>";
 
         // Overall statistics
         rc+="Accuracy = " + metrics.accuracy();
@@ -236,6 +231,16 @@ public class Main {
     }
 
 
+
+    private static JsonNode getDataFromFile(String filename, String copy) throws IOException {
+        return getData(filename,copy);
+    }
+
+    private static JsonNode getData(String copy) throws IOException {
+        return getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",copy);
+    }
+
+
     public static Dataset<Row> createTrain(String file){
         return spark.read().json(file);
     }
@@ -312,18 +317,18 @@ public class Main {
 
         logger.info("Lancement de l'environnement spark");
         spark=SparkSession.builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
-        trainer=createPipeline();
-        createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",null));
+        trainer=createPipeline(100);
+        createTrain(getData(null));
 
         final Runnable commandRefresh = new Runnable() {
             public void run() {
                 try {
                     //String url="https://api.jcdecaux.com/vls/v1/stations/{station_number}?contract=030b9a75c4671dad26255107f2c93dbf710f7bdc";
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
-                    //if(horaire.endsWith("0") || horaire.endsWith("5")){
+                    if(horaire.endsWith("0") || horaire.endsWith("5")){
                         String copyPath="velib_"+System.currentTimeMillis()+".json";
-                        train(trainer,createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",copyPath)));
-                    //}
+                        train(trainer,createTrain(getData(copyPath)));
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -338,8 +343,8 @@ public class Main {
             if(stations.size()==0)html="Aucune station";
 
             MultilayerPerceptronClassificationModel model=
-                    (MultilayerPerceptronClassificationModel) createPipeline()
-                            .fit(createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json",null)))
+                    (MultilayerPerceptronClassificationModel) createPipeline(1)
+                            .fit(createTrain(getData(null)))
                             .stages()[0];
 
             for(Station s:stations)
@@ -363,30 +368,63 @@ public class Main {
 
 
         Spark.get("/evaluate", (request, response) -> {
-            Dataset<Row> dataset = createTrain(getData("https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json", null));
-            return evaluate(train(createPipeline(),dataset),dataset);
+            Dataset<Row> dataset = createTrain(getData(null));
+            return evaluate(train(createPipeline(1),dataset));
         });
 
-        Spark.get("/train", (request, response) -> {
-            File dir=new File(".");
-            Dataset<Row> dataset=null;
-            for(File f:dir.listFiles()){
-                if(f.getName().indexOf(".json")>0){
-                    Dataset<Row> dt = createTrain(getData(f.getName(), null));
-                    if(dataset==null)
-                        dataset=dt;
-                    else
-                        dataset=dataset.union(dt);
-                }
-            }
-            return evaluate(train(createPipeline(),dataset),dataset);
+        Spark.get("/list", (request, response) -> {
+            String html="Files :<br>";
+            for(File f:new File(".").listFiles())
+                if(f.getName().startsWith("velib"))
+                    html+=f.getName()+"<br>";
+
+            return html;
+        });
+
+        Spark.get("/train/:iterations", (request, response) -> {
+            return evaluate(train(createPipeline(Integer.valueOf(request.params("iterations"))),getAllData()));
         });
 
         Spark.get("/weights", (request, response) -> {
-            return showWeights(createPipeline().fit(spark.emptyDataFrame()));
+            return showWeights(createPipeline(0).fit(createTrain(getData(null))));
+        });
+
+        Spark.get("/raz", (request, response) -> {
+            File f=new File("velib.w");
+            f.delete();
+            return "ok";
+        });
+
+
+        Spark.get("/help", (request, response) -> {
+            String html="commands : <br>";
+            html+="<a href='./help'>Help</a><br>";
+            html+="<a href='./weights'>Weights</a><br>";
+            html+="<a href='./evaluate'>Evaluate</a><br>";
+            html+="<a href='./list'>List Files</a><br>";
+            html+="<a href='./train/100'>Train</a><br>";
+            html+="<a href='./use/paradis/0/0'>Use</a><br>";
+            html+="<a href='./raz'>Raz</a><br>";
+            return html;
         });
     }
 
+
+
+    private static Dataset<Row> getAllData() throws IOException {
+        File dir=new File(".");
+        Dataset<Row> dataset=null;
+        for(File f:dir.listFiles()){
+            if(f.getName().indexOf(".json")>0){
+                Dataset<Row> dt = createTrain(getDataFromFile(f.getName(), null));
+                if(dataset==null)
+                    dataset=dt;
+                else
+                    dataset=dataset.union(dt);
+            }
+        }
+        return dataset;
+    }
 
 
 }

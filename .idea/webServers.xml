@@ -2,7 +2,7 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="99d7e0db-9dd7-4465-a95a-dfe5bd4bf482" name="pi2" url="http://85.68.170.110/">
+      <webServer id="99d7e0db-9dd7-4465-a95a-dfe5bd4bf482" name="pi2 (project level)" url="http://85.68.170.110/">
         <fileTransfer host="85.68.170.110" port="22" rootFolder="/home/pi/NeuralVelib" accessType="SFTP" password="dfc2dfc2df9edf98df9ddf9bdf8bdf8b" username="pi">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" />
