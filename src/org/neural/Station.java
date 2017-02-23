@@ -23,6 +23,12 @@ public class Station implements Serializable {
     Integer hour=0;
     Double nPlace=0.0; //0,1 ou 2
 
+    /**
+     *
+     * @param jnode
+     * @param temperature
+     * @param dt
+     */
     public Station(JsonNode jnode, Double temperature, Long dt){
         this.id=jnode.get("number").asLong();
         this.name=jnode.get("name").asText();
@@ -37,12 +43,14 @@ public class Station implements Serializable {
         if(temperature<15)soleil=0.0; else soleil=1.0;
 
         this.day=new Date(dt).getDay();
-        this.minute=new Date(dt).getMinutes();
+        this.minute=new Date(dt).getMinutes() % 5;
+
         this.month=new Date(dt).getMonth();
         this.hour=new Date(dt).getHours();
 
         //this.features=new SparseVector(6,new int[]{0,1,2,3,4,5},new double[]{this.day,this.minute,this.month,this.day,this.temperature,this.id});
     }
+
 
     public Station(Long station, String name,Integer day, Integer hour, Integer minute,Double soleil) {
         this.id= station;
@@ -55,6 +63,14 @@ public class Station implements Serializable {
 
     public Station() {}
 
+    public Station(Station s, Long date, Double soleil) {
+        this.id=s.getId();
+        this.hour=new Date(date).getHours();
+        this.minute=new Date(date).getMinutes();
+        this.day=new Date(date).getDay();
+        this.soleil=s.getSoleil();
+        this.name=s.getName();
+    }
 
 
     public Long getId() {
