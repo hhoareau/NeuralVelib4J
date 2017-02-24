@@ -33,7 +33,6 @@ public class Main {
         Tools.createCertificate();
 
         logger.info("Lancement de l'environnement spark");
-
         spark=new MySpark("Java Spark SQL basic example");
 
         final Runnable commandRefresh = new Runnable() {
@@ -46,7 +45,7 @@ public class Main {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                scheduler.schedule(this,1, TimeUnit.MINUTES);
+                scheduler.schedule(this,5, TimeUnit.MINUTES);
             }
         };
         scheduler.schedule(commandRefresh,0,TimeUnit.MINUTES);
@@ -57,13 +56,16 @@ public class Main {
         Spark.get("/use/:station/:delay/:soleil", (request, response) -> {
             String html="";
             if(stations.getSize()==0)html="Aucune station";
-            for(Station s:stations.getStations())
-                if(s.getName().indexOf(request.params("station"))>0){
+            Iterator<Station> ite=stations.getIterator();
+            while(ite.hasNext()){
+                Station s=ite.next();
+                if(s.getName().indexOf(request.params("station").toUpperCase())>0){
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
                     station.nPlace=spark.predict(station.toVector().toDense());
                     html+=station.toHTML();
                 }
+            }
             return html;
         });
 
@@ -74,10 +76,14 @@ public class Main {
 
 
         Spark.get("/load", (request, response) -> {
-            stations=new Datas(NOW_FILE);
-            return stations.toHTML();
+            stations.add(new Datas(NOW_FILE));
+            return stations.toHTML(2000);
         });
 
+        Spark.get("/loadall", (request, response) -> {
+            stations=new Datas(1.0);
+            return stations.toHTML(2000);
+        });
 
         Spark.get("/list", (request, response) -> {
             String html="Files :<br>";
@@ -89,11 +95,12 @@ public class Main {
         });
 
         Spark.get("/stations", (request, response) -> {
-            return stations.toHTML();
+            return stations.toHTML(2000);
         });
 
         Spark.get("/train/:iter", (request, response) -> {
-            spark.train(new Datas(1.0), Integer.valueOf(request.params("iter")));
+            if(stations.getSize()==0)stations=new Datas(NOW_FILE);
+            spark.train(stations, Integer.valueOf(request.params("iter")));
             return spark.evaluate(new Datas(NOW_FILE));
         });
 
@@ -107,17 +114,30 @@ public class Main {
             return "ok";
         });
 
+        Spark.get("/razstations", (request, response) -> {
+            stations=new Datas();
+            return "ok";
+        });
+
+
         Spark.get("/", (request, response) -> {
             String html="commands : <br>";
             html+="<a href='./help'>Help</a><br>";
-            html+="<a href='./weights'>Weights</a><br>";
-            html+="<a href='./evaluate'>Evaluate</a><br>";
-            html+="<a href='./load'>Load stations</a><br>";
-            html+="<a href='./list'>List Files</a><br>";
+
+            html+="<h2>"+stations.getSize()+" stations</h2>";
+            html+="<a href='./load'>Add stations for now</a><br>";
+            html+="<a href='./loadall'>Add all stations</a><br>";
             html+="<a href='./stations'>Stations list</a><br>";
+            html+="<a href='./list'>List Files</a><br>";
+            html+="<a href='./razstations'>Raz stations</a><br>";
+
+            html+="<h2>Train</h2>";
             html+="<a href='./train/100'>Train on all</a><br>";
+            html+="<a href='./evaluate'>Evaluate</a><br>";
             html+="<a href='./use/paradis/0/0'>Use</a><br>";
+            html+="<a href='./weights'>Weights</a><br>";
             html+="<a href='./raz'>Raz</a><br>";
+
             return html;
         });
     }

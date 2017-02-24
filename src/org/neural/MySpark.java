@@ -38,7 +38,7 @@ public class MySpark {
     public void createPipeline(Integer iter)  {
         // create the trainer and set its parameters
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
-                .setLayers(new int[] {new Station().colsName().length,50,50,3})
+                .setLayers(new int[] {new Station().colsName().length,50,50,11})
                 .setBlockSize(128)
                 .setSeed(1234L)
                 .setLabelCol("nPlace")
@@ -81,8 +81,12 @@ public class MySpark {
         return mlp;
     }
 
-    public MultilayerPerceptronClassificationModel getMLPmodel(){
-        return (MultilayerPerceptronClassificationModel)model.stages()[0];
+    public MultilayerPerceptronClassificationModel getMLPmodel() throws IOException {
+        if(model==null)train(new Datas(),1);
+        if(model.stages().length>0)
+            return (MultilayerPerceptronClassificationModel)model.stages()[0];
+        else
+            return null;
     }
 
     public void train(Datas datas,Integer iter) throws IOException {
@@ -93,7 +97,7 @@ public class MySpark {
     }
 
 
-    public String showWeights(){
+    public String showWeights() throws IOException {
         return this.getMLPmodel().weights().toString();
     }
 
@@ -117,20 +121,15 @@ public class MySpark {
         rc+="Confusion matrix: \n" + Tools.toHTML(confusion)+"<br><br>";
 
         // Overall statistics
-        rc+="Accuracy = " + metrics.accuracy();
+        rc+="Accuracy = " + metrics.accuracy()+"<br>";
 
         // Stats by labels
-        for (int i = 0; i < metrics.labels().length; i++) {
-            rc+=String.format("Class %f precision = %f\n", metrics.labels()[i],metrics.precision(metrics.labels()[i]));
-            rc+=String.format("Class %f recall = %f\n", metrics.labels()[i], metrics.recall(metrics.labels()[i]));
-            rc+=String.format("Class %f F1 score = %f\n", metrics.labels()[i], metrics.fMeasure(metrics.labels()[i]));
-        }
+        for (int i = 0; i < metrics.labels().length; i++)
+            rc+=String.format("<br>Class %f precision = %f / recall = %f / score = %f", metrics.labels()[i],metrics.precision(metrics.labels()[i]),metrics.recall(metrics.labels()[i]),metrics.fMeasure(metrics.labels()[i]));
 
         //Weighted stats
-        rc+=String.format("Weighted precision = %f\n", metrics.weightedPrecision());
-        rc+=String.format("Weighted recall = %f\n", metrics.weightedRecall());
-        rc+=String.format("Weighted F1 score = %f\n", metrics.weightedFMeasure());
-        rc+=String.format("Weighted false positive rate = %f\n", metrics.weightedFalsePositiveRate());
+        rc+=String.format("<br><br>Weighted precision = %f / recall = %f / F1 score = %f / false positive rate = %f",
+                metrics.weightedPrecision(),metrics.weightedFMeasure(),metrics.weightedRecall(),metrics.weightedFalsePositiveRate());
 
         return rc;
     }

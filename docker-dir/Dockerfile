@@ -5,6 +5,10 @@
 FROM jsurf/rpi-java
 ADD *.jar /home/
 RUN apt-get update
+
+#Installation de BLAS
+
+
 WORKDIR /home
 EXPOSE 9999 9999
 CMD ["/usr/lib/jvm/java-8-oracle/bin/java", "-Xmx1024m", "-cp", "/home/NeuralVelib4J.jar","org.neural.Main"]

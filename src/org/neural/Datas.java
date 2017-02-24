@@ -6,9 +6,11 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.codehaus.jackson.JsonNode;
+import scala.Array;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.*;
 
 /**
@@ -21,19 +23,22 @@ public class Datas {
     public Datas() {
     }
 
-    public void initList(JsonNode jsonNode,Double temperature){
+    public void initList(JsonNode jsonNode,Double temperature) throws ParseException {
         Iterator<JsonNode> ite=jsonNode.getElements();
-        while(ite.hasNext())stations.add(new Station(ite.next().get("fields"), temperature, System.currentTimeMillis()));
+        while(ite.hasNext()){
+            JsonNode item=ite.next().get("fields");
+            if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN"))
+                stations.add(new Station(item, temperature));
+        }
     }
 
 
-    public Datas(String path) throws IOException {
+    public Datas(String path) throws IOException, ParseException {
         Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
         initList(Tools.getData(path,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"));
     }
 
-
-    public Datas(Double part) throws IOException {
+    public Datas(Double part) throws IOException, ParseException {
         File dir=new File("./files/");
         Double nb=dir.listFiles().length*part;
         for(File f:dir.listFiles()){
@@ -44,11 +49,17 @@ public class Datas {
         }
     }
 
-    public String toHTML(){
+    public String toHTML(Integer max){
         String html="";
         if(stations.size()==0)return "no stations";
-        for(Station s:this.stations)
+
+        Collections.sort(stations);
+
+        for(Station s:this.stations){
             html+=s.toHTML()+"<br>";
+            if(max--<0)break;
+        }
+
 
         return html;
     }
@@ -63,6 +74,10 @@ public class Datas {
                 .setOutputCol("tempFeatures");
         rc=assembler.transform(rc);
 
+        rc=rc.drop(new String[]{"lg","lt","name","dtUpdate"});
+
+        rc.show(20,false);
+
         Normalizer normalizer = new Normalizer()
                 .setInputCol("tempFeatures")
                 .setOutputCol("features")
@@ -72,11 +87,19 @@ public class Datas {
         return rc;
     }
 
+    public Iterator<Station> getIterator(){
+        return this.stations.iterator();
+    }
+
     public Integer getSize(){
         return this.stations.size();
     }
 
     public Station[] getStations() {
         return this.getStations();
+    }
+
+    public void add(Datas datas) {
+        this.stations.addAll(datas.stations);
     }
 }

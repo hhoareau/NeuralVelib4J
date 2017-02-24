@@ -5,17 +5,22 @@ import org.apache.spark.ml.linalg.Vector;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
 
+import java.text.DateFormatSymbols;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
  * Created by Hervé on 20/02/2017.
  */
-public class Station implements Serializable {
+public class Station implements Serializable,Comparable<Station> {
+    Double nBike=0.0;
     Long id=0L;
     String name="";
     Double lt=0.0;
     Double lg=0.0;
     Double soleil=1.0;
+    Long dtUpdate=System.currentTimeMillis();
     Integer month=0;
     Integer minute=0;
     Integer day=0;
@@ -28,24 +33,31 @@ public class Station implements Serializable {
      * @param temperature
      * @param dt
      */
-    public Station(JsonNode jnode, Double temperature, Long dt){
+    public Station(JsonNode jnode, Double temperature) throws ParseException {
         this.id=jnode.get("number").asLong();
         this.name=jnode.get("name").asText();
+        String sDate=jnode.get("last_update").asText();
+        sDate=sDate.split("\\+")[0];
+        Date dt=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(sDate);
+        this.dtUpdate=dt.getTime();
 
         this.nPlace=jnode.get("available_bike_stands").asDouble();
-        if(this.nPlace>0 && this.nPlace<10)this.nPlace=1.0;
-        if(this.nPlace>=10)this.nPlace=2.0;
+        if(this.nPlace>9)this.nPlace=10.0;
+
+        this.nBike=jnode.get("available_bikes").asDouble();
+        if(this.nBike>9)this.nBike=10.0;
+
 
         this.lt= Double.valueOf(jnode.get("position").get(0).asDouble());
         this.lg= Double.valueOf(jnode.get("position").get(1).asDouble());
 
         if(temperature<15)soleil=0.0; else soleil=1.0;
 
-        this.day=new Date(dt).getDay();
-        this.minute=Math.round(new Date(dt).getMinutes()/5)*5;
+        this.day=dt.getDay();
+        this.minute=Math.round(dt.getMinutes()/5)*5;
 
-        this.month=new Date(dt).getMonth();
-        this.hour=new Date(dt).getHours();
+        this.month=dt.getMonth();
+        this.hour=dt.getHours();
     }
 
 
@@ -63,7 +75,7 @@ public class Station implements Serializable {
     public Station(Station s, Long date, Double soleil) {
         this.id=s.getId();
         this.hour=new Date(date).getHours();
-        this.minute=new Date(date).getMinutes();
+        this.minute=Math.round(new Date(date).getMinutes()/5)*5;
         this.day=new Date(date).getDay();
         this.soleil=s.getSoleil();
         this.name=s.getName();
@@ -122,8 +134,25 @@ public class Station implements Serializable {
         return minute;
     }
 
+    public Double getnBike() {
+        return nBike;
+    }
+
+    public void setnBike(Double nBike) {
+        if(nBike>9)nBike=10.0;
+        this.nBike = nBike;
+    }
+
     public void setMinute(Integer minute) {
         this.minute = minute;
+    }
+
+    public Long getDtUpdate() {
+        return dtUpdate;
+    }
+
+    public void setDtUpdate(Long dtUpdate) {
+        this.dtUpdate = dtUpdate;
     }
 
     public Integer getDay() {
@@ -147,11 +176,10 @@ public class Station implements Serializable {
     }
 
     public void setnPlace(Double nPlace) {
-        Double rc=0.0;
-        if(nPlace>0 && nPlace<10)rc=1.0;
-        if(nPlace>10)rc=2.0;
-        this.nPlace = rc;
+        if(nPlace>9)nPlace=10.0;
+        this.nPlace = nPlace;
     }
+
 
     public Vector toVector() {
         DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.month,this.minute,this.soleil});
@@ -164,12 +192,48 @@ public class Station implements Serializable {
 
     public String toHTML(){
         String html="<h1>"+this.name+"</h1>";
-        html+=this.hour+":"+this.minute+"<br>";
-
-        String place="aucun vélo";
-        if(this.nPlace==1)place="entre 1 et 10 vélos";
-        if(this.nPlace==2)place="plus de 10 vélos";
-        html+=place;
+        html+="Le "+this.getDay()+" At "+new SimpleDateFormat("dd/MM HH:mm").format(this.dtUpdate)+" ("+this.getHour()+":"+this.getMinute()+") : ";
+        html+=this.getnPlace()+" places & "+this.getnBike()+" bikes";
         return html;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Station station = (Station) o;
+
+        if (nBike != null ? !nBike.equals(station.nBike) : station.nBike != null) return false;
+        if (id != null ? !id.equals(station.id) : station.id != null) return false;
+        if (soleil != null ? !soleil.equals(station.soleil) : station.soleil != null) return false;
+        if (month != null ? !month.equals(station.month) : station.month != null) return false;
+        if (minute != null ? !minute.equals(station.minute) : station.minute != null) return false;
+        if (day != null ? !day.equals(station.day) : station.day != null) return false;
+        if (hour != null ? !hour.equals(station.hour) : station.hour != null) return false;
+        return !(nPlace != null ? !nPlace.equals(station.nPlace) : station.nPlace != null);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = nBike != null ? nBike.hashCode() : 0;
+        result = 31 * result + (id != null ? id.hashCode() : 0);
+        result = 31 * result + (soleil != null ? soleil.hashCode() : 0);
+        result = 31 * result + (month != null ? month.hashCode() : 0);
+        result = 31 * result + (minute != null ? minute.hashCode() : 0);
+        result = 31 * result + (day != null ? day.hashCode() : 0);
+        result = 31 * result + (hour != null ? hour.hashCode() : 0);
+        result = 31 * result + (nPlace != null ? nPlace.hashCode() : 0);
+        return result;
+    }
+
+    @Override
+    public int compareTo(Station station) {
+        if(this.getId()>station.getId())return 1;
+        if(this.getId()<station.getId())return -1;
+        if(this.dtUpdate>station.dtUpdate)return 1;
+        if(this.dtUpdate<station.dtUpdate)return -1;
+        return 0;
     }
 }
