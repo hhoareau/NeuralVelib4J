@@ -5,7 +5,6 @@ import org.apache.spark.ml.linalg.Vector;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
 
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
@@ -43,12 +42,10 @@ public class Station implements Serializable {
         if(temperature<15)soleil=0.0; else soleil=1.0;
 
         this.day=new Date(dt).getDay();
-        this.minute=new Date(dt).getMinutes() % 5;
+        this.minute=Math.round(new Date(dt).getMinutes()/5)*5;
 
         this.month=new Date(dt).getMonth();
         this.hour=new Date(dt).getHours();
-
-        //this.features=new SparseVector(6,new int[]{0,1,2,3,4,5},new double[]{this.day,this.minute,this.month,this.day,this.temperature,this.id});
     }
 
 
@@ -57,7 +54,7 @@ public class Station implements Serializable {
         this.name=name;
         this.day=day;
         this.hour=hour;
-        this.minute=minute;
+        this.minute=Math.round(minute/5)*5;
         this.soleil=soleil;
     }
 

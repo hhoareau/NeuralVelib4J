@@ -1,11 +1,6 @@
 package org.neural;
 
-import org.apache.spark.ml.classification.MultilayerPerceptronClassificationModel;
-import org.apache.spark.ml.classification.MultilayerPerceptronClassifier;
-import org.apache.spark.mllib.linalg.DenseVector;
 import org.apache.spark.mllib.linalg.Matrix;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
@@ -109,7 +104,6 @@ public class Tools {
     }
 
     public static void createCertificate() throws NoSuchAlgorithmException, KeyManagementException {
-
         TrustManager[] trustAllCerts = new TrustManager[]{
                 new X509TrustManager() {
                     public java.security.cert.X509Certificate[] getAcceptedIssuers() {
