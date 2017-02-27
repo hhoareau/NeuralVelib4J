@@ -1,10 +1,10 @@
 package org.neural;
 
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.ml.feature.Normalizer;
 import org.apache.spark.ml.feature.VectorAssembler;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
+import org.apache.spark.storage.StorageLevel;
 import org.codehaus.jackson.JsonNode;
 import scala.Array;
 
@@ -12,38 +12,53 @@ import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * Created by u016272 on 23/02/2017.
  */
 public class Datas {
 
+    private static Logger logger = Logger.getLogger(String.valueOf(Datas.class));
+
     private List<Station> stations=new ArrayList<>();
+    private JavaRDD<Station> rdd_stations=null;
 
     public Datas() {
     }
 
-    public void initList(JsonNode jsonNode,Double temperature) throws ParseException {
-        Iterator<JsonNode> ite=jsonNode.getElements();
-        while(ite.hasNext()){
-            JsonNode item=ite.next().get("fields");
-            if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN"))
-                stations.add(new Station(item, temperature));
+    public void initList(JsonNode jsonNode,Double temperature,String filter) throws ParseException {
+        if(jsonNode!=null){
+            //this.rdd_stations=spark.sparkContext().parallelize(stations.toArray());
+
+            Iterator<JsonNode> ite=jsonNode.getElements();
+            if(ite!=null)
+                while(ite.hasNext()){
+                    JsonNode item=ite.next().get("fields");
+                    if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
+                        Station s=new Station(item, temperature);
+                        if(filter==null || s.getName().indexOf(filter)>-1)
+                            this.add(s);
+                    }
+                }
         }
     }
 
 
-    public Datas(String path) throws IOException, ParseException {
+    public Datas(String path,String filter) throws IOException, ParseException {
+
         Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
-        initList(Tools.getData(path,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"));
+        initList(Tools.getData(path,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"),filter);
     }
 
-    public Datas(Double part) throws IOException, ParseException {
+
+
+    public Datas(Double part,String filter) throws IOException, ParseException {
         File dir=new File("./files/");
         Double nb=dir.listFiles().length*part;
         for(File f:dir.listFiles()){
             if(f.getName().indexOf(".json")>0 && nb>0){
-                initList(Tools.getDataFromFile("./files/"+f.getName(),null),1.0);
+                initList(Tools.getDataFromFile("./files/"+f.getName(),null),1.0,filter);
                 nb--;
             }
         }
@@ -64,19 +79,19 @@ public class Datas {
         return html;
     }
 
-
     public Dataset<Row> createTrain(SparkSession spark) throws IOException {
-        Dataset<Row> rc=spark.createDataFrame(this.stations, Station.class);
-        rc.persist();
+        Dataset<Row> rc=spark.createDataFrame(stations,Station.class);
+
+        rc.persist(StorageLevel.MEMORY_ONLY());
 
         VectorAssembler assembler = new VectorAssembler()
                 .setInputCols(new Station().colsName())
                 .setOutputCol("tempFeatures");
         rc=assembler.transform(rc);
 
-        rc=rc.drop(new String[]{"lg","lt","name","dtUpdate"});
+        rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil"});
 
-        rc.show(20,false);
+        rc.show(600,false);
 
         Normalizer normalizer = new Normalizer()
                 .setInputCol("tempFeatures")
@@ -101,5 +116,22 @@ public class Datas {
 
     public void add(Datas datas) {
         this.stations.addAll(datas.stations);
+    }
+
+    public void add(Station s) {
+        //Encoder<Station> e= Encoders.bean(Station.class);
+        if(!this.stations.contains(s))this.stations.add(s);
+        //else logger.info(s.toString()+" en doublon");
+    }
+
+    public Station getStation(String name) {
+        Iterator<Station> ite = this.getIterator();
+        while (ite.hasNext()) {
+            Station s = ite.next();
+            if (s.getName().indexOf(name.toUpperCase()) > 0) {
+                return s;
+            }
+        }
+        return null;
     }
 }

@@ -18,6 +18,7 @@ public class Main {
     private static Logger logger = Logger.getLogger(String.valueOf(Main.class));
     private static MySpark spark=null;
     private static Datas stations=new Datas();
+    private static String filter="PARADIS";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException {
@@ -41,7 +42,7 @@ public class Main {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
-                        stations.add(new Datas(NOW_FILE));
+                        stations.add(new Datas(NOW_FILE,filter));
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -67,38 +68,62 @@ public class Main {
         scheduler.schedule(commandRefresh,100,TimeUnit.MINUTES);
 
 
+        Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
+            String html="";
+            if(stations.getSize()==0)stations=new Datas(1.0,filter);
+
+            Station s=stations.getStation(request.params("station"));
+            if(s!=null){
+                Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
+                html+="Input : "+station.toVector().toString();
+                station.nPlace=spark.predict(station.toVector().toDense());
+                html+=station.toHTML();
+                return html;
+            }
+            return html;
+        });
+
+
         //test : http://localhost:9999/use/PARADIS/0/0
         Spark.get("/use/:station/:delay/:soleil", (request, response) -> {
             String html="";
-            if(stations.getSize()==0)html="Aucune station";
-            Iterator<Station> ite=stations.getIterator();
-            while(ite.hasNext()){
-                Station s=ite.next();
-                if(s.getName().indexOf(request.params("station").toUpperCase())>0){
+            if(stations.getSize()==0)stations=new Datas(1.0,filter);
+
+            Station s=stations.getStation(request.params("station"));
+            if(s!=null){
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
+                    html+="Input : "+station.toVector().toString();
                     station.nPlace=spark.predict(station.toVector().toDense());
                     html+=station.toHTML();
-                }
+                    return html;
             }
             return html;
         });
 
 
         Spark.get("/evaluate", (request, response) -> {
-            return spark.evaluate(new Datas(NOW_FILE));
+            return spark.evaluate(new Datas(NOW_FILE,filter));
         });
 
 
         Spark.get("/load", (request, response) -> {
-            stations.add(new Datas(NOW_FILE));
+            stations.add(new Datas(NOW_FILE,filter));
             return stations.toHTML(2000);
         });
 
         Spark.get("/loadall", (request, response) -> {
-            stations=new Datas(1.0);
+            filter=null;
+            stations=new Datas(1.0,null);
             return stations.toHTML(2000);
         });
+
+        Spark.get("/loadwithfilter/:filter", (request, response) -> {
+            filter=request.params("filter");
+            stations=new Datas(1.0,filter);
+            return stations.toHTML(2000);
+        });
+
 
         Spark.get("/list", (request, response) -> {
             String html="Files :<br>";
@@ -114,9 +139,9 @@ public class Main {
         });
 
         Spark.get("/train/:iter", (request, response) -> {
-            if(stations.getSize()==0)stations=new Datas(NOW_FILE);
+            if(stations.getSize()==0)stations=new Datas(NOW_FILE,filter);
             spark.train(stations, Integer.valueOf(request.params("iter")));
-            return spark.evaluate(new Datas(NOW_FILE));
+            return spark.evaluate(new Datas(NOW_FILE,filter));
         });
 
         Spark.get("/weights", (request, response) -> {
@@ -139,9 +164,10 @@ public class Main {
             String html="commands : <br>";
             html+="<a href='./help'>Help</a><br>";
 
-            html+="<h2>"+stations.getSize()+" stations</h2>";
+            html+="<h2>"+stations.getSize()+" stations / filter="+filter+"</h2>";
             html+="<a href='./load'>Add stations for now</a><br>";
             html+="<a href='./loadall'>Add all stations</a><br>";
+            html+="<a href='./loadwithfilter/PARADIS'>Add stations with filter "+filter+" </a><br>";
             html+="<a href='./stations'>Stations list</a><br>";
             html+="<a href='./list'>List Files</a><br>";
             html+="<a href='./razstations'>Raz stations</a><br>";
@@ -150,6 +176,7 @@ public class Main {
             html+="<a href='./train/100'>Train on all</a><br>";
             html+="<a href='./evaluate'>Evaluate</a><br>";
             html+="<a href='./use/paradis/0/0'>Use</a><br>";
+            html+="<a href='./use/paradis/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";
             html+="<a href='./weights'>Weights</a><br>";
             html+="<a href='./raz'>Raz</a><br>";
 

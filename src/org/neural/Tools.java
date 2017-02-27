@@ -2,6 +2,7 @@ package org.neural;
 
 import org.apache.spark.mllib.linalg.Matrix;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -18,11 +19,14 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * Created by u016272 on 23/02/2017.
  */
 public class Tools {
+
+    private static Logger logger = Logger.getLogger(String.valueOf(Tools.class));
 
     /**
      *
@@ -88,15 +92,20 @@ public class Tools {
                 FileInputStream f=new FileInputStream(str);
                 return new ObjectMapper().readTree(new InputStreamReader(f));
             }
-
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.severe("Probleme de format avec "+str);
         }
         return null;
     }
 
     public static JsonNode getDataFromFile(String filename, String copy) throws IOException {
-        return getData(filename,copy);
+        try {
+            return getData(filename,copy);
+        } catch (JsonParseException e) {
+            logger.severe("Probleme de format avec "+filename);
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public static JsonNode getData(String copy) throws IOException {

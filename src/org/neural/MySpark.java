@@ -45,6 +45,7 @@ public class MySpark {
 
     public MySpark(String s) {
         this.spark=builder().master("local").appName("Java Spark SQL basic example").getOrCreate();
+        this.spark.sparkContext().setLogLevel("WARN");
         createPipeline(100);
     }
 
@@ -90,7 +91,6 @@ public class MySpark {
         save(this.getMLPmodel());
     }
 
-
     public String showWeights() throws IOException {
         return this.getMLPmodel().weights().toString();
     }
@@ -128,7 +128,6 @@ public class MySpark {
         return rc;
     }
 
-
     public SparkSession getSession() {
         return this.spark;
     }
@@ -137,11 +136,8 @@ public class MySpark {
         return this.getMLPmodel().predict(v);
     }
 
-
     public String evaluate(Datas stations) throws IOException {
         if(model==null)train(stations,1);
         return this.evaluate(stations.createTrain(this.getSession()));
     }
-
-
 }

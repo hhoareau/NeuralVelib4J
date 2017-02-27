@@ -1,7 +1,11 @@
 package org.neural;
 
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.ml.linalg.DenseVector;
 import org.apache.spark.ml.linalg.Vector;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
 
@@ -21,7 +25,6 @@ public class Station implements Serializable,Comparable<Station> {
     Double lg=0.0;
     Double soleil=1.0;
     Long dtUpdate=System.currentTimeMillis();
-    Integer month=0;
     Integer minute=0;
     Integer day=0;
     Integer hour=0;
@@ -31,7 +34,6 @@ public class Station implements Serializable,Comparable<Station> {
      *
      * @param jnode
      * @param temperature
-     * @param dt
      */
     public Station(JsonNode jnode, Double temperature) throws ParseException {
         this.id=jnode.get("number").asLong();
@@ -55,8 +57,6 @@ public class Station implements Serializable,Comparable<Station> {
 
         this.day=dt.getDay();
         this.minute=Math.round(dt.getMinutes()/5)*5;
-
-        this.month=dt.getMonth();
         this.hour=dt.getHours();
     }
 
@@ -78,6 +78,15 @@ public class Station implements Serializable,Comparable<Station> {
         this.minute=Math.round(new Date(date).getMinutes()/5)*5;
         this.day=new Date(date).getDay();
         this.soleil=s.getSoleil();
+        this.name=s.getName();
+    }
+
+    public Station(Station s, Integer day, Integer hour, Integer minute, Double soleil) {
+        this.id=s.getId();
+        this.hour=hour;
+        this.day=day;
+        this.minute=minute;
+        this.soleil=soleil;
         this.name=s.getName();
     }
 
@@ -120,14 +129,6 @@ public class Station implements Serializable,Comparable<Station> {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public Integer getMonth() {
-        return month;
-    }
-
-    public void setMonth(Integer month) {
-        this.month = month;
     }
 
     public Integer getMinute() {
@@ -182,12 +183,12 @@ public class Station implements Serializable,Comparable<Station> {
 
 
     public Vector toVector() {
-        DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.month,this.minute,this.soleil});
+        DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.minute,this.soleil});
         return v;
     }
 
     public String[] colsName() {
-        return new String[]{"id","day","hour","month","minute","soleil"};
+        return new String[]{"id","day","hour","minute","soleil"};
     }
 
     public String toHTML(){
@@ -207,7 +208,6 @@ public class Station implements Serializable,Comparable<Station> {
         if (nBike != null ? !nBike.equals(station.nBike) : station.nBike != null) return false;
         if (id != null ? !id.equals(station.id) : station.id != null) return false;
         if (soleil != null ? !soleil.equals(station.soleil) : station.soleil != null) return false;
-        if (month != null ? !month.equals(station.month) : station.month != null) return false;
         if (minute != null ? !minute.equals(station.minute) : station.minute != null) return false;
         if (day != null ? !day.equals(station.day) : station.day != null) return false;
         if (hour != null ? !hour.equals(station.hour) : station.hour != null) return false;
@@ -220,7 +220,6 @@ public class Station implements Serializable,Comparable<Station> {
         int result = nBike != null ? nBike.hashCode() : 0;
         result = 31 * result + (id != null ? id.hashCode() : 0);
         result = 31 * result + (soleil != null ? soleil.hashCode() : 0);
-        result = 31 * result + (month != null ? month.hashCode() : 0);
         result = 31 * result + (minute != null ? minute.hashCode() : 0);
         result = 31 * result + (day != null ? day.hashCode() : 0);
         result = 31 * result + (hour != null ? hour.hashCode() : 0);
