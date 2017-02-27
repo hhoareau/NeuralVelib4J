@@ -1,14 +1,10 @@
 package org.neural;
 
-import org.apache.spark.SparkContext;
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
 import org.apache.spark.ml.classification.MultilayerPerceptronClassificationModel;
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier;
-import org.apache.spark.ml.feature.Normalizer;
-import org.apache.spark.ml.feature.VectorAssembler;
-import org.apache.spark.ml.linalg.*;
 import org.apache.spark.ml.linalg.Vector;
 import org.apache.spark.mllib.evaluation.MulticlassMetrics;
 import org.apache.spark.mllib.linalg.DenseVector;
@@ -16,15 +12,13 @@ import org.apache.spark.mllib.linalg.Matrix;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.codehaus.jackson.JsonNode;
-
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.Scanner;
 
-import static org.apache.spark.sql.SparkSession.*;
+import static org.apache.spark.sql.SparkSession.builder;
 
 /**
  * Created by u016272 on 23/02/2017.

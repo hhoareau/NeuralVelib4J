@@ -4,6 +4,7 @@ import spark.Spark;
 import java.io.*;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -40,16 +41,30 @@ public class Main {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
-                        spark.train(stations,100);
+                        stations.add(new Datas(NOW_FILE));
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
-                scheduler.schedule(this,5, TimeUnit.MINUTES);
+                scheduler.schedule(this,1, TimeUnit.MINUTES);
             }
         };
         scheduler.schedule(commandRefresh,0,TimeUnit.MINUTES);
 
+
+        final Runnable trainRefresh= new Runnable() {
+            public void run() {
+                try {
+                    spark.train(stations,500);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                scheduler.schedule(this,100, TimeUnit.MINUTES);
+            }
+        };
+        scheduler.schedule(commandRefresh,100,TimeUnit.MINUTES);
 
 
         //test : http://localhost:9999/use/PARADIS/0/0
