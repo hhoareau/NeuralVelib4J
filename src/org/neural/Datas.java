@@ -1,19 +1,18 @@
 package org.neural;
 
-import org.apache.avro.data.Json;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.ml.feature.Normalizer;
 import org.apache.spark.ml.feature.VectorAssembler;
-import org.apache.spark.sql.*;
-import org.apache.spark.sql.streaming.StreamingQueryException;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.storage.StorageLevel;
-import org.codehaus.jackson.JsonNode;
-import org.eclipse.jetty.websocket.common.frames.DataFrame;
-import scala.Array;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.text.ParseException;
-import java.util.*;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -29,14 +28,13 @@ public class Datas {
     public Datas() {
     }
 
-    public Datas(SparkSession spark,String path) throws IOException, ParseException {
+    public Datas(SparkSession spark,String path,String filter) throws IOException, ParseException {
         for (File f : new File(path).listFiles())
             if(f.getName().indexOf(".json")>0){
                 logger.info("Chargement de "+f.getName());
-                add(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0), spark);
+                add(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0,filter), spark);
                 df=df.distinct();
             }
-        df.persist(StorageLevel.MEMORY_AND_DISK());
     }
 
     public Datas(Double part,String filter) throws IOException, ParseException {
@@ -60,7 +58,7 @@ public class Datas {
             df=rs;
         else
             df=df.union(rs);
-        df.persist(StorageLevel.MEMORY_AND_DISK());
+        df.persist(StorageLevel.MEMORY_ONLY());
     }
 
 
@@ -73,8 +71,6 @@ public class Datas {
         return html;
     }
 
-
-
     public Dataset<Row> createTrain(SparkSession spark) throws IOException {
         VectorAssembler assembler = new VectorAssembler()
                 .setInputCols(new Station().colsName())
@@ -84,7 +80,7 @@ public class Datas {
 
         rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil"});
 
-        //rc.show(600,false);
+        rc.show(600,false);
 
         Normalizer normalizer = new Normalizer()
                 .setInputCol("tempFeatures")

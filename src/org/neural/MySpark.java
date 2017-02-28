@@ -1,6 +1,5 @@
 package org.neural;
 
-import com.google.common.collect.ImmutableSet;
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
@@ -8,7 +7,6 @@ import org.apache.spark.ml.classification.MultilayerPerceptronClassificationMode
 import org.apache.spark.ml.classification.MultilayerPerceptronClassifier;
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator;
 import org.apache.spark.ml.linalg.Vector;
-import org.apache.spark.ml.param.IntArrayParam;
 import org.apache.spark.ml.param.ParamMap;
 import org.apache.spark.ml.tuning.CrossValidator;
 import org.apache.spark.ml.tuning.CrossValidatorModel;
@@ -20,10 +18,14 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
+import scala.collection.JavaConversions;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Scanner;
 
 import static org.apache.spark.sql.SparkSession.builder;
 
@@ -37,6 +39,7 @@ public class MySpark {
     private PipelineModel model=null;
     private CrossValidator crossValidator=null;
 
+
     public void createPipeline()  {
         // create the trainer and set its parameters
         int inputLayer=new Station().colsName().length;
@@ -45,18 +48,17 @@ public class MySpark {
 
         load(mlp);
 
-        IntArrayParam a=new IntArrayParam(null,"a","b");
-
-        List<Integer[]> layers= new ArrayList<>();
-        layers.add(new Integer[]{inputLayer, 5, 5, 11});
-        layers.add(new Integer[]{inputLayer,20,20,11});
-
+        Collection<int[]> layers = new HashSet<>();
+        layers.add(new int[]{inputLayer, 5, 5, 11});
+        layers.add(new int[]{inputLayer,20,20,11});
+        layers.add(new int[]{inputLayer,7,7,7,11});
+        layers.add(new int[]{inputLayer,50,50,11});
 
         Pipeline pipeline=new Pipeline().setStages(new PipelineStage[] {mlp});
 
         ParamMap[] paramGrid = new ParamGridBuilder()
                 .addGrid(mlp.blockSize(), new int[] {128, 200})
-                .addGrid(mlp.layers(), layers.iterator())
+                .addGrid(mlp.layers(),JavaConversions.asScalaIterable(layers))
                 .addGrid(mlp.maxIter(), new int[] {10,100,1000})
                 .addGrid(mlp.seed(), new long[] {1234L})
                 .build();

@@ -55,7 +55,7 @@ public class Tools {
     }
 
 
-    public static List<Station> getStations(JsonNode jsonNode,Double temperature) throws ParseException {
+    public static List<Station> getStations(JsonNode jsonNode,Double temperature,String filter) throws ParseException {
         List<Station> rc=new ArrayList<>();
         Iterator<JsonNode> ite=jsonNode.getElements();
         if(ite!=null)
@@ -63,7 +63,7 @@ public class Tools {
                 JsonNode item=ite.next().get("fields");
                 if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
                     Station s=new Station(item, temperature);
-                    rc.add(s);
+                    if(filter==null || s.getName().contains(filter))rc.add(s);
                 }
             }
         return rc;

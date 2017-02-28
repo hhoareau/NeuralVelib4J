@@ -10,8 +10,18 @@
       <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/jniloader/1.1/jniloader-1.1.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/netlib/core/1.1/core-1.1.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/netlib/native_system-java/1.1/native_system-java-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/jniloader/1.1/jniloader-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/netlib/core/1.1/core-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/netlib/native_system-java/1.1/native_system-java-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/jniloader/1.1/jniloader-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/github/fommil/netlib/core/1.1/core-1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1.jar!/" />
     </CLASSES>
     <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1-javadoc.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1-javadoc.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1-javadoc.jar!/" />
       <root url="jar://$MAVEN_REPOSITORY$/net/sourceforge/f2j/arpack_combined_all/0.1/arpack_combined_all-0.1-javadoc.jar!/" />
     </JAVADOC>

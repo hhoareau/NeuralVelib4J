@@ -43,7 +43,7 @@ public class Main {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
-                        stations.add(Tools.getStations(Tools.getData(null),1.0),spark.getSession());
+                        stations.add(Tools.getStations(Tools.getData(null),1.0,null),spark.getSession());
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -110,21 +110,21 @@ public class Main {
 
         Spark.get("/load", (request, response) -> {
             Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
-            stations.add(Tools.getStations(Tools.getData(NOW_FILE,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature")),spark.getSession());
+            stations.add(Tools.getStations(Tools.getData(NOW_FILE,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"),filter),spark.getSession());
             return stations.toHTML(2000);
         });
 
         Spark.get("/loadall", (request, response) -> {
             filter=null;
             //stations=new Datas(1.0,null);
-            stations=new Datas(spark.getSession(),"./files");
+            stations=new Datas(spark.getSession(),"./files",null);
             stations.save();
             return stations.toHTML(2000);
         });
 
         Spark.get("/loadwithfilter/:filter", (request, response) -> {
             filter=request.params("filter");
-            stations=new Datas(1.0,filter);
+            stations=new Datas(spark.getSession(),"./files",filter);
             return stations.toHTML(2000);
         });
 
