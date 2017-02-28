@@ -84,11 +84,13 @@ public class MySpark {
             return null;
     }
 
-    public void train(Datas datas,Integer iter) throws IOException {
+    public String train(Datas datas,Integer iter) throws IOException {
         Dataset<Row> r=datas.createTrain(this.getSession());
+        Dataset<Row>[] dts = r.randomSplit(new double[]{0.7, 0.3});
         createPipeline(iter);
-        this.model=pipeline.fit(r);
+        this.model=pipeline.fit(dts[0]);
         save(this.getMLPmodel());
+        return evaluate(dts[1]);
     }
 
     public String showWeights() throws IOException {

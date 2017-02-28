@@ -9,6 +9,8 @@
       <element id="library" level="project" name="com.sparkjava:spark-core:2.5.5" />
       <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
       <element id="library" level="project" name="org.apache.spark:spark-mllib_2.10:2.1.0" />
+      <element id="library" level="project" name="org.nd4j:nd4j-netlib-blas:0.4-rc3.6" />
+      <element id="library" level="project" name="com.github.fommil.netlib:netlib-native_system-linux-x86_64:Latest" />
     </root>
   </artifact>
 </component>

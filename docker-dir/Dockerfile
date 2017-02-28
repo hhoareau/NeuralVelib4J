@@ -1,0 +1,21 @@
+#test : sudo docker run -t -i -p 9999:9999 -v /home/file:/home/pi/neural-velib hhoareau/neural-velib
+#Remplacement : sudo docker ps
+#Construction : cd ./NeuralVelib/docker-dir && sudo docker build -t hhoareau/neural-velib-pc .
+#publication : sudo docker login && docker push hhoareau/neural-velib-pc
+#Installation : sudo docker run --restart=always -d -p 9999:9999 -v /home/pi/neural-velib:/home/files hhoareau/neural-velib-pc
+FROM openjdk
+ADD *.jar /home/
+RUN apt-get update
+RUN apt-get install -y libgfortran3
+RUN apt-get install -y clinfo
+
+#Installation de BLAS
+RUN apt-get install -y libatlas3-base libopenblas-base
+#RUN update-alternatives --config libblas.so
+#RUN update-alternatives --config libblas.so.3
+#RUN update-alternatives --config liblapack.so
+#RUN update-alternatives --config liblapack.so.3
+
+WORKDIR /home
+EXPOSE 9999 9999
+CMD ["java", "-Xmx1024m", "-cp", "/home/NeuralVelib4J.jar","org.neural.Main"]

@@ -58,7 +58,7 @@ public class Main {
         final Runnable trainRefresh= new Runnable() {
             public void run() {
                 try {
-                    spark.train(stations,500);
+                    spark.train(stations,10000);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -124,6 +124,13 @@ public class Main {
             return stations.toHTML(2000);
         });
 
+        Spark.get("/persist", (request, response) -> {
+            stations.createTrain(spark.getSession());
+            return "save";
+        });
+
+
+
 
         Spark.get("/list", (request, response) -> {
             String html="Files :<br>";
@@ -140,8 +147,7 @@ public class Main {
 
         Spark.get("/train/:iter", (request, response) -> {
             if(stations.getSize()==0)stations=new Datas(NOW_FILE,filter);
-            spark.train(stations, Integer.valueOf(request.params("iter")));
-            return spark.evaluate(new Datas(NOW_FILE,filter));
+            return spark.train(stations, Integer.valueOf(request.params("iter")));
         });
 
         Spark.get("/weights", (request, response) -> {
