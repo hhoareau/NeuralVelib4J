@@ -90,6 +90,17 @@ public class Station implements Serializable,Comparable<Station> {
         this.name=s.getName();
     }
 
+    public Station(Row r) {
+        this.id=r.getLong(3);
+        this.name=r.getString(9);
+        this.day=r.getInt(0);
+        this.hour=r.getInt(2);
+        this.minute=r.getInt(6);
+        this.nPlace=r.getDouble(8);
+        this.soleil=r.getDouble(10);
+        this.dtUpdate=r.getLong(1);
+    }
+
 
     public Long getId() {
         return id;

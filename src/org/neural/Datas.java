@@ -1,15 +1,17 @@
 package org.neural;
 
+import org.apache.avro.data.Json;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.ml.feature.Normalizer;
 import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.*;
+import org.apache.spark.sql.streaming.StreamingQueryException;
 import org.apache.spark.storage.StorageLevel;
 import org.codehaus.jackson.JsonNode;
+import org.eclipse.jetty.websocket.common.frames.DataFrame;
 import scala.Array;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.text.ParseException;
 import java.util.*;
 import java.util.logging.Logger;
@@ -21,77 +23,68 @@ public class Datas {
 
     private static Logger logger = Logger.getLogger(String.valueOf(Datas.class));
 
-    private List<Station> stations=new ArrayList<>();
-    private JavaRDD<Station> rdd_stations=null;
+    //private List<Station> stations=new ArrayList<>();
+    private Dataset<Row> df=null;
 
     public Datas() {
     }
 
-    public void initList(JsonNode jsonNode,Double temperature,String filter) throws ParseException {
-        if(jsonNode!=null){
-            //this.rdd_stations=spark.sparkContext().parallelize(stations.toArray());
-
-            Iterator<JsonNode> ite=jsonNode.getElements();
-            if(ite!=null)
-                while(ite.hasNext()){
-                    JsonNode item=ite.next().get("fields");
-                    if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
-                        Station s=new Station(item, temperature);
-                        if(filter==null || s.getName().indexOf(filter)>-1)
-                            this.add(s);
-                    }
-                }
-        }
+    public Datas(SparkSession spark,String path) throws IOException, ParseException {
+        for (File f : new File(path).listFiles())
+            if(f.getName().indexOf(".json")>0){
+                logger.info("Chargement de "+f.getName());
+                add(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0), spark);
+                df=df.distinct();
+            }
+        df.persist(StorageLevel.MEMORY_AND_DISK());
     }
-
-
-    public Datas(String path,String filter) throws IOException, ParseException {
-
-        Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
-        initList(Tools.getData(path,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"),filter);
-    }
-
-
 
     public Datas(Double part,String filter) throws IOException, ParseException {
         File dir=new File("./files/");
         Double nb=dir.listFiles().length*part;
         for(File f:dir.listFiles()){
             if(f.getName().indexOf(".json")>0 && nb>0){
-                initList(Tools.getDataFromFile("./files/"+f.getName(),null),1.0,filter);
+                //initList(Tools.getDataFromFile("./files/"+f.getName(),null),1.0,filter);
                 nb--;
             }
         }
     }
 
+    public Datas(MySpark spark) throws FileNotFoundException {
+        this.load(spark.getSession());
+    }
+
+    public void add(List<Station> stations,SparkSession spark) throws IOException, ParseException {
+        Dataset<Row> rs=spark.createDataFrame(stations,Station.class);
+        if(df==null)
+            df=rs;
+        else
+            df=df.union(rs);
+        df.persist(StorageLevel.MEMORY_AND_DISK());
+    }
+
+
     public String toHTML(Integer max){
         String html="";
-        if(stations.size()==0)return "no stations";
-
-        Collections.sort(stations);
-
-        for(Station s:this.stations){
-            html+=s.toHTML()+"<br>";
+        for(Row r:this.df.collectAsList()){
+            html+=new Station(r).toHTML()+"<br>";
             if(max--<0)break;
         }
-
-
         return html;
     }
 
+
+
     public Dataset<Row> createTrain(SparkSession spark) throws IOException {
-        Dataset<Row> rc=spark.createDataFrame(stations,Station.class);
-
-        rc.persist(StorageLevel.MEMORY_ONLY());
-
         VectorAssembler assembler = new VectorAssembler()
                 .setInputCols(new Station().colsName())
                 .setOutputCol("tempFeatures");
-        rc=assembler.transform(rc);
+
+        Dataset<Row> rc=assembler.transform(this.df);
 
         rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil"});
 
-        rc.show(600,false);
+        //rc.show(600,false);
 
         Normalizer normalizer = new Normalizer()
                 .setInputCol("tempFeatures")
@@ -102,36 +95,33 @@ public class Datas {
         return rc;
     }
 
-    public Iterator<Station> getIterator(){
-        return this.stations.iterator();
-    }
-
-    public Integer getSize(){
-        return this.stations.size();
-    }
-
-    public Station[] getStations() {
-        return this.getStations();
-    }
-
-    public void add(Datas datas) {
-        this.stations.addAll(datas.stations);
-    }
-
-    public void add(Station s) {
-        //Encoder<Station> e= Encoders.bean(Station.class);
-        if(!this.stations.contains(s))this.stations.add(s);
-        //else logger.info(s.toString()+" en doublon");
-    }
-
     public Station getStation(String name) {
-        Iterator<Station> ite = this.getIterator();
-        while (ite.hasNext()) {
-            Station s = ite.next();
-            if (s.getName().indexOf(name.toUpperCase()) > 0) {
-                return s;
-            }
-        }
-        return null;
+        List<Row> lr=this.df.filter("name='"+name+"'").collectAsList();
+        if(lr.size()>0)
+            return new Station(lr.get(0));
+        else
+            return null;
     }
+
+    public int getSize() {
+        if(df==null)return 0;
+        return this.df.collectAsList().size();
+    }
+
+    public void save() throws FileNotFoundException  {
+        String path="./files/stations";
+        //FileOutputStream f=new FileOutputStream(path);
+        //this.df.toJSON().write().csv(path);
+    }
+
+    public void load(SparkSession spark)  {
+        FileInputStream f=null;
+        try {
+            f=new FileInputStream("./files/stations.csv");
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        if(f!=null)this.df=spark.readStream().schema(this.df.schema()).load();
+    }
+
 }

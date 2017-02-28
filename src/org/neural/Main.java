@@ -17,11 +17,11 @@ public class Main {
     private static final String NOW_FILE = "https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json";
     private static Logger logger = Logger.getLogger(String.valueOf(Main.class));
     private static MySpark spark=null;
-    private static Datas stations=new Datas();
+    private static Datas stations=null;
     private static String filter="PARADIS";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-    public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException {
+    public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException, ParseException {
 
         Integer port=9999;
         if(args.length>0)port= Integer.valueOf(args[0]);
@@ -36,13 +36,14 @@ public class Main {
 
         logger.info("Lancement de l'environnement spark");
         spark=new MySpark("Java Spark SQL basic example");
+        stations=new Datas(spark);
 
         final Runnable commandRefresh = new Runnable() {
             public void run() {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
-                        stations.add(new Datas(NOW_FILE,filter));
+                        stations.add(Tools.getStations(Tools.getData(null),1.0),spark.getSession());
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -52,7 +53,7 @@ public class Main {
                 scheduler.schedule(this,1, TimeUnit.MINUTES);
             }
         };
-        scheduler.schedule(commandRefresh,0,TimeUnit.MINUTES);
+        scheduler.schedule(commandRefresh,10,TimeUnit.MINUTES);
 
 
         final Runnable trainRefresh= new Runnable() {
@@ -103,18 +104,21 @@ public class Main {
 
 
         Spark.get("/evaluate", (request, response) -> {
-            return spark.evaluate(new Datas(NOW_FILE,filter));
+            return spark.evaluate(stations);
         });
 
 
         Spark.get("/load", (request, response) -> {
-            stations.add(new Datas(NOW_FILE,filter));
+            Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
+            stations.add(Tools.getStations(Tools.getData(NOW_FILE,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature")),spark.getSession());
             return stations.toHTML(2000);
         });
 
         Spark.get("/loadall", (request, response) -> {
             filter=null;
-            stations=new Datas(1.0,null);
+            //stations=new Datas(1.0,null);
+            stations=new Datas(spark.getSession(),"./files");
+            stations.save();
             return stations.toHTML(2000);
         });
 
@@ -146,7 +150,7 @@ public class Main {
         });
 
         Spark.get("/train/:iter", (request, response) -> {
-            if(stations.getSize()==0)stations=new Datas(NOW_FILE,filter);
+            if(stations.getSize()==0)return "load stations before train";
             return spark.train(stations, Integer.valueOf(request.params("iter")));
         });
 

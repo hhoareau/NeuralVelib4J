@@ -17,6 +17,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.logging.Logger;
@@ -54,6 +55,21 @@ public class Tools {
     }
 
 
+    public static List<Station> getStations(JsonNode jsonNode,Double temperature) throws ParseException {
+        List<Station> rc=new ArrayList<>();
+        Iterator<JsonNode> ite=jsonNode.getElements();
+        if(ite!=null)
+            while(ite.hasNext()){
+                JsonNode item=ite.next().get("fields");
+                if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
+                    Station s=new Station(item, temperature);
+                    rc.add(s);
+                }
+            }
+        return rc;
+    }
+
+
     public static String toHTML(Matrix m){
         String rc="<table style='backgroundColor:grey'>";
         scala.collection.Iterator<org.apache.spark.mllib.linalg.Vector> ite=m.rowIter();
@@ -67,6 +83,7 @@ public class Tools {
         rc+="</table>";
         return rc;
     }
+
 
 
     //https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json
