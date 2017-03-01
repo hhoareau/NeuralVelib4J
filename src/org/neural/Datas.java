@@ -1,7 +1,5 @@
 package org.neural;
 
-import org.apache.spark.ml.feature.Normalizer;
-import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -12,8 +10,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import static org.apache.spark.sql.functions.col;
 
 /**
  * Created by u016272 on 23/02/2017.
@@ -24,17 +26,32 @@ public class Datas {
 
     //private List<Station> stations=new ArrayList<>();
     private Dataset<Row> df=null;
+    private Long size=0L;
 
     public Datas() {
+        size=0L;
     }
 
     public Datas(SparkSession spark,String path,String filter) throws IOException, ParseException {
+        logger.setLevel(Level.INFO);
+        List<Station> stats=new ArrayList<>();
         for (File f : new File(path).listFiles())
             if(f.getName().indexOf(".json")>0){
                 logger.info("Chargement de "+f.getName());
-                add(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0,filter), spark);
-                df=df.distinct();
+                stats.addAll(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0,filter));
+                if(stats.size()>100000){
+                    add(stats, spark);
+                    size+=stats.size();
+                    df=df.distinct();
+                    df.persist();
+                    stats.clear();
+                }
             }
+
+        add(stats, spark);
+        size+=stats.size();
+        df=df.distinct();
+        df.persist();
     }
 
     public Datas(Double part,String filter) throws IOException, ParseException {
@@ -50,14 +67,20 @@ public class Datas {
 
     public Datas(MySpark spark) throws FileNotFoundException {
         this.load(spark.getSession());
+        size=0L;
     }
 
     public void add(List<Station> stations,SparkSession spark) throws IOException, ParseException {
-        Dataset<Row> rs=spark.createDataFrame(stations,Station.class);
-        if(df==null)
-            df=rs;
-        else
-            df=df.union(rs);
+        int limit=3;
+        int nStations=stations.size()/limit;
+        if(nStations<3){nStations=stations.size();limit=1;}
+        for(int i=0;i<limit;i++){
+            Dataset<Row> rs=spark.createDataFrame(stations.subList(i*nStations,Math.min((i+1)*nStations,stations.size())),Station.class);
+            if(df==null)
+                df=rs;
+            else
+                df=df.union(rs);
+        }
         df.persist(StorageLevel.MEMORY_ONLY());
     }
 
@@ -71,37 +94,17 @@ public class Datas {
         return html;
     }
 
-    public Dataset<Row> createTrain(SparkSession spark) throws IOException {
-        VectorAssembler assembler = new VectorAssembler()
-                .setInputCols(new Station().colsName())
-                .setOutputCol("tempFeatures");
-
-        Dataset<Row> rc=assembler.transform(this.df);
-
-        rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil"});
-
-        rc.show(600,false);
-
-        Normalizer normalizer = new Normalizer()
-                .setInputCol("tempFeatures")
-                .setOutputCol("features")
-                .setP(1.0);
-        rc=normalizer.transform(rc);
-
-        return rc;
-    }
 
     public Station getStation(String name) {
-        List<Row> lr=this.df.filter("name='"+name+"'").collectAsList();
+        List<Row> lr=this.df.filter(col("name").contains(name)).collectAsList();
         if(lr.size()>0)
             return new Station(lr.get(0));
         else
             return null;
     }
 
-    public int getSize() {
-        if(df==null)return 0;
-        return this.df.collectAsList().size();
+    public long getSize() {
+        return size;
     }
 
     public void save() throws FileNotFoundException  {
@@ -115,9 +118,15 @@ public class Datas {
         try {
             f=new FileInputStream("./files/stations.csv");
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
         }
         if(f!=null)this.df=spark.readStream().schema(this.df.schema()).load();
     }
 
+    public String showData() {
+        return Tools.DatasetToHTML(this.df.showString(200,100));
+    }
+
+    public Dataset<Row> getData() {
+        return this.df;
+    }
 }

@@ -77,8 +77,7 @@ public class Main {
             if(s!=null){
                 Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
                 html+="Input : "+station.toVector().toString();
-                station.nPlace=spark.predict(station.toVector().toDense());
-                html+=station.toHTML();
+                html+=spark.predict(station);
                 return html;
             }
             return html;
@@ -90,13 +89,12 @@ public class Main {
             String html="";
             if(stations.getSize()==0)stations=new Datas(1.0,filter);
 
-            Station s=stations.getStation(request.params("station"));
+            Station s=stations.getStation(request.params("station").toUpperCase());
             if(s!=null){
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
-                    html+="Input : "+station.toVector().toString();
-                    station.nPlace=spark.predict(station.toVector().toDense());
-                    html+=station.toHTML();
+                    html+="Input : "+station.toVector().toString()+"<br><br>";
+                    html+=Tools.DatasetToHTML(spark.predict(station));
                     return html;
             }
             return html;
@@ -119,7 +117,10 @@ public class Main {
             //stations=new Datas(1.0,null);
             stations=new Datas(spark.getSession(),"./files",null);
             stations.save();
-            return stations.toHTML(2000);
+            if(stations.getSize()<2000)
+                return stations.toHTML(2000);
+            else
+                return "ok";
         });
 
         Spark.get("/loadwithfilter/:filter", (request, response) -> {
@@ -129,10 +130,14 @@ public class Main {
         });
 
         Spark.get("/persist", (request, response) -> {
-            stations.createTrain(spark.getSession());
+            Tools.createTrain(stations);
             return "save";
         });
 
+
+        Spark.get("/show", (request, response) -> {
+            return stations.showData();
+        });
 
 
 
@@ -177,18 +182,23 @@ public class Main {
             html+="<h2>"+stations.getSize()+" stations / filter="+filter+"</h2>";
             html+="<a href='./load'>Add stations for now</a><br>";
             html+="<a href='./loadall'>Add all stations</a><br>";
-            html+="<a href='./loadwithfilter/PARADIS'>Add stations with filter "+filter+" </a><br>";
+            html+="<a href='./loadwithfilter/10019%20-%20PARADIS'>Add stations with filter "+filter+" </a><br>";
             html+="<a href='./stations'>Stations list</a><br>";
             html+="<a href='./list'>List Files</a><br>";
+            html+="<a href='./show'>Show inputs</a><br>";
             html+="<a href='./razstations'>Raz stations</a><br>";
 
             html+="<h2>Train</h2>";
             html+="<a href='./train/100'>Train on all</a><br>";
             html+="<a href='./evaluate'>Evaluate</a><br>";
-            html+="<a href='./use/paradis/0/0'>Use</a><br>";
-            html+="<a href='./use/paradis/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";
+            html+="<a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>";
+            html+="<a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";
             html+="<a href='./weights'>Weights</a><br>";
             html+="<a href='./raz'>Raz</a><br>";
+
+            html+="<h2>Tools</h2>";
+            html+="<a href='localhost:4040'>Admin</a><br>";
+
 
             return html;
         });

@@ -1,6 +1,10 @@
 package org.neural;
 
+import org.apache.spark.ml.feature.Normalizer;
+import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.mllib.linalg.Matrix;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -54,6 +58,34 @@ public class Tools {
         return rc;
     }
 
+    public static Dataset<Row> createTrain(Datas dt) throws IOException {
+        return createTrain(dt.getData());
+    }
+
+    public static Dataset<Row> createTrain(Dataset<Row> dt) throws IOException {
+        VectorAssembler assembler = new VectorAssembler()
+                .setInputCols(new Station().colsName())
+                .setOutputCol("tempFeatures");
+
+        Dataset<Row> rc=assembler.transform(dt);
+
+        rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil","nBike","nPlace"});
+
+        rc.show(30,false);
+
+        //Tokenizer tokenizer=new Tokenizer().setInputCol("tempFeatures").setOutputCol("tempFeatures2");
+
+        Normalizer normalizer = new Normalizer()
+                .setInputCol("tempFeatures")
+                .setOutputCol("features")
+                .setP(1.0);
+        rc=normalizer.transform(rc);
+
+        rc.show(30,false);
+
+        return rc;
+    }
+
 
     public static List<Station> getStations(JsonNode jsonNode,Double temperature,String filter) throws ParseException {
         List<Station> rc=new ArrayList<>();
@@ -63,7 +95,7 @@ public class Tools {
                 JsonNode item=ite.next().get("fields");
                 if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
                     Station s=new Station(item, temperature);
-                    if(filter==null || s.getName().contains(filter))rc.add(s);
+                    if(filter==null || s.getName().indexOf(filter)>-1)rc.add(s);
                 }
             }
         return rc;
@@ -183,4 +215,12 @@ public class Tools {
         return rc;
     }
 
+    public static String DatasetToHTML(String ss) {
+        String s="<table>";
+        for(String line:ss.split("\n")){
+            line=line.substring(1,line.length()-1);
+            s+="<tr><td>"+line.replaceAll("|","</td><td>")+"</td></tr>";
+        }
+        return s+"</table>";
+    }
 }

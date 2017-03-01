@@ -22,7 +22,9 @@ import scala.collection.JavaConversions;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Scanner;
@@ -36,7 +38,7 @@ public class MySpark {
 
     //private Pipeline pipeline=null;
     private SparkSession spark=null;
-    private PipelineModel model=null;
+    private MultilayerPerceptronClassificationModel model=null;
     private CrossValidator crossValidator=null;
 
 
@@ -44,22 +46,22 @@ public class MySpark {
         // create the trainer and set its parameters
         int inputLayer=new Station().colsName().length;
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
-                .setLabelCol("nPlace");
+                .setLabelCol("label");
 
         load(mlp);
 
         Collection<int[]> layers = new HashSet<>();
-        layers.add(new int[]{inputLayer, 5, 5, 11});
-        layers.add(new int[]{inputLayer,20,20,11});
-        layers.add(new int[]{inputLayer,7,7,7,11});
-        layers.add(new int[]{inputLayer,50,50,11});
+        layers.add(new int[]{inputLayer, 10, 10, 4});
+        //layers.add(new int[]{inputLayer,1,1,4});
+        //layers.add(new int[]{inputLayer,7,7,7,4});
+        //layers.add(new int[]{inputLayer,50,50,4});
 
         Pipeline pipeline=new Pipeline().setStages(new PipelineStage[] {mlp});
 
         ParamMap[] paramGrid = new ParamGridBuilder()
-                .addGrid(mlp.blockSize(), new int[] {128, 200})
+                .addGrid(mlp.blockSize(), new int[] {128})
                 .addGrid(mlp.layers(),JavaConversions.asScalaIterable(layers))
-                .addGrid(mlp.maxIter(), new int[] {10,100,1000})
+                .addGrid(mlp.maxIter(), new int[] {10})
                 .addGrid(mlp.seed(), new long[] {1234L})
                 .build();
 
@@ -67,25 +69,24 @@ public class MySpark {
                 .setEstimator(pipeline)
                 .setEvaluator(new MulticlassClassificationEvaluator())
                 .setEstimatorParamMaps(paramGrid).setNumFolds(2);  // Use 3+ in practice
-
-
     }
 
     public MySpark(String s) {
         this.spark=builder().master("local").appName(s).getOrCreate();
-        this.spark.sparkContext().setLogLevel("INFO");
+        this.spark.sparkContext().setLogLevel("WARN");
         createPipeline();
     }
 
     public void save(CrossValidatorModel model) throws IOException {
-        ParamMap p = model.bestModel().extractParamMap();
-        /*
+        PipelineModel pm = (PipelineModel) model.bestModel();
+        this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0];
+
         FileOutputStream f=new FileOutputStream("./files/velib.w");
         String s="";
-        for(Double d:v.toArray())s+=d+";";
+        for(Double d:this.model.weights().toArray())s+=d+";";
         f.write(s.getBytes());
         f.close();
-        */
+
     }
 
     public MultilayerPerceptronClassifier load(MultilayerPerceptronClassifier mlp) {
@@ -99,32 +100,26 @@ public class MySpark {
                 f.close();
             }
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         return mlp;
     }
 
-    public MultilayerPerceptronClassificationModel getMLPmodel() throws IOException {
-        if(model==null)train(new Datas(),1);
-        if(model.stages().length>0)
-            return (MultilayerPerceptronClassificationModel)model.stages()[0];
-        else
-            return null;
-    }
 
     public String train(Datas datas,Integer iter) throws IOException {
-        Dataset<Row> r=datas.createTrain(this.getSession());
+        Dataset<Row> r=Tools.createTrain(datas);
         Dataset<Row>[] dts = r.randomSplit(new double[]{0.7, 0.3});
         createPipeline();
         CrossValidatorModel model= crossValidator.fit(dts[0]);
+        this.model= (MultilayerPerceptronClassificationModel) model.bestModel();
         save(model);
         return evaluate(dts[1]);
     }
 
     public String showWeights() throws IOException {
-        return this.getMLPmodel().weights().toString();
+        return this.model.explainParams();
     }
 
 
@@ -133,9 +128,10 @@ public class MySpark {
     }
 
     public String evaluate(Dataset<Row> r) throws IOException {
-        Dataset<Row> result = model.transform(r);
-        Dataset<Row> predictionAndLabels = result.select("prediction", "nPlace");
 
+        Dataset<Row> result = model.transform(r);
+        Dataset<Row> predictionAndLabels = result.select("prediction", "label");
+        predictionAndLabels.show(30,false);
         String rc="";
 
         // Get evaluation metrics.
@@ -164,19 +160,23 @@ public class MySpark {
         return this.spark;
     }
 
-    public Double predict(Vector v) throws IOException {
-        return this.getMLPmodel().predict(v);
+
+
+    public String predict(Station s) throws IOException {
+        Dataset<Row> dt = spark.createDataFrame(Arrays.asList(s), Station.class);
+        dt=this.model.transform(Tools.createTrain(dt));
+        return dt.showString(1,100);
     }
 
     public String predictDetail(Vector v) throws IOException {
         Row r= RowFactory.create(v.toArray());
         Dataset<Row> f=spark.emptyDataFrame();
-        return this.getMLPmodel().transform(f).toString();
+        return this.model.transform(f).toString();
     }
 
     public String evaluate(Datas stations) throws IOException {
         if(model==null)train(stations,1);
-        return this.evaluate(stations.createTrain(this.getSession()).randomSplit(new double[]{0.3,0.6})[0]);
+        return this.evaluate(Tools.createTrain(stations).randomSplit(new double[]{0.3,0.6})[0]);
     }
 
 }

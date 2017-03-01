@@ -1,15 +1,11 @@
 package org.neural;
 
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.ml.linalg.DenseVector;
 import org.apache.spark.ml.linalg.Vector;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.codehaus.jackson.JsonNode;
 import scala.Serializable;
 
-import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -29,6 +25,7 @@ public class Station implements Serializable,Comparable<Station> {
     Integer day=0;
     Integer hour=0;
     Double nPlace=0.0; //0,1 ou 2
+    Double label =0.0;
 
     /**
      *
@@ -44,10 +41,18 @@ public class Station implements Serializable,Comparable<Station> {
         this.dtUpdate=dt.getTime();
 
         this.nPlace=jnode.get("available_bike_stands").asDouble();
-        if(this.nPlace>9)this.nPlace=10.0;
+        if(this.nPlace>3)
+            this.nPlace=1.0;
+        else
+            this.nPlace=0.0;
 
         this.nBike=jnode.get("available_bikes").asDouble();
-        if(this.nBike>9)this.nBike=10.0;
+        if(this.nBike>3)
+            this.nBike=1.0;
+        else
+            this.nBike=0.0;
+
+        this.label =this.nBike*2+this.nPlace;
 
 
         this.lt= Double.valueOf(jnode.get("position").get(0).asDouble());
@@ -87,17 +92,22 @@ public class Station implements Serializable,Comparable<Station> {
         this.day=day;
         this.minute=minute;
         this.soleil=soleil;
+        this.nBike=s.nBike;
+        this.nPlace=s.nPlace;
+        this.label =s.label;
         this.name=s.getName();
     }
 
     public Station(Row r) {
         this.id=r.getLong(3);
-        this.name=r.getString(9);
+        this.name=r.getString(10);
         this.day=r.getInt(0);
         this.hour=r.getInt(2);
-        this.minute=r.getInt(6);
-        this.nPlace=r.getDouble(8);
-        this.soleil=r.getDouble(10);
+        this.minute=r.getInt(7);
+        this.nBike=r.getDouble(8);
+        this.nPlace=r.getDouble(9);
+        this.label =r.getDouble(4);
+        this.soleil=r.getDouble(11);
         this.dtUpdate=r.getLong(1);
     }
 
@@ -192,6 +202,13 @@ public class Station implements Serializable,Comparable<Station> {
         this.nPlace = nPlace;
     }
 
+    public Double getLabel() {
+        return label;
+    }
+
+    public void setLabel(Double label) {
+        this.label = label;
+    }
 
     public Vector toVector() {
         DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.minute,this.soleil});
@@ -199,13 +216,17 @@ public class Station implements Serializable,Comparable<Station> {
     }
 
     public String[] colsName() {
-        return new String[]{"id","day","hour","minute","soleil"};
+        return new String[]{"id","day","hour","minute"};
     }
 
     public String toHTML(){
-        String html="<h1>"+this.name+"</h1>";
+        String html="<h2>"+this.name+"</h2>";
         html+="Le "+this.getDay()+" At "+new SimpleDateFormat("dd/MM HH:mm").format(this.dtUpdate)+" ("+this.getHour()+":"+this.getMinute()+") : ";
-        html+=this.getnPlace()+" places & "+this.getnBike()+" bikes";
+        if(this.label ==0.0)html+="pas de place, pas de vélo";
+        if(this.label ==1.0)html+="pas de vélos, des places";
+        if(this.label ==2.0)html+="des vélo, pas de places";
+        if(this.label ==3.0)html+="des vélos, des places";
+        html+="<br>"+this.getnPlace()+" places & "+this.getnBike()+" bikes";
         return html;
     }
 
