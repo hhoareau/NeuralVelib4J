@@ -71,7 +71,7 @@ public class Tools {
 
         rc=rc.drop(new String[]{"lg","lt","name","dtUpdate","day","hour","id","minute","soleil","nBike","nPlace"});
 
-        rc.show(30,false);
+        //rc.show(30,false);
 
         //Tokenizer tokenizer=new Tokenizer().setInputCol("tempFeatures").setOutputCol("tempFeatures2");
 
@@ -81,7 +81,7 @@ public class Tools {
                 .setP(1.0);
         rc=normalizer.transform(rc);
 
-        rc.show(30,false);
+        //rc.show(30,false);
 
         return rc;
     }

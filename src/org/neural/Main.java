@@ -77,7 +77,7 @@ public class Main {
             if(s!=null){
                 Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
                 html+="Input : "+station.toVector().toString();
-                html+=spark.predict(station);
+                html+=Tools.DatasetToHTML(spark.predict(station));
                 return html;
             }
             return html;

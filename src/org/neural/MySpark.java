@@ -42,7 +42,7 @@ public class MySpark {
     private CrossValidator crossValidator=null;
 
 
-    public void createPipeline()  {
+    public void createPipeline(Integer maxIter)  {
         // create the trainer and set its parameters
         int inputLayer=new Station().colsName().length;
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
@@ -51,8 +51,8 @@ public class MySpark {
         load(mlp);
 
         Collection<int[]> layers = new HashSet<>();
-        layers.add(new int[]{inputLayer, 10, 10, 4});
-        //layers.add(new int[]{inputLayer,1,1,4});
+        layers.add(new int[]{inputLayer, 20, 20, 4});
+        //layers.add(new int[]{inputLayer,50,4});
         //layers.add(new int[]{inputLayer,7,7,7,4});
         //layers.add(new int[]{inputLayer,50,50,4});
 
@@ -61,7 +61,7 @@ public class MySpark {
         ParamMap[] paramGrid = new ParamGridBuilder()
                 .addGrid(mlp.blockSize(), new int[] {128})
                 .addGrid(mlp.layers(),JavaConversions.asScalaIterable(layers))
-                .addGrid(mlp.maxIter(), new int[] {10})
+                .addGrid(mlp.maxIter(), new int[] {maxIter})
                 .addGrid(mlp.seed(), new long[] {1234L})
                 .build();
 
@@ -74,7 +74,7 @@ public class MySpark {
     public MySpark(String s) {
         this.spark=builder().master("local").appName(s).getOrCreate();
         this.spark.sparkContext().setLogLevel("WARN");
-        createPipeline();
+        createPipeline(10);
     }
 
     public void save(CrossValidatorModel model) throws IOException {
@@ -111,9 +111,10 @@ public class MySpark {
     public String train(Datas datas,Integer iter) throws IOException {
         Dataset<Row> r=Tools.createTrain(datas);
         Dataset<Row>[] dts = r.randomSplit(new double[]{0.7, 0.3});
-        createPipeline();
+        createPipeline(iter);
         CrossValidatorModel model= crossValidator.fit(dts[0]);
-        this.model= (MultilayerPerceptronClassificationModel) model.bestModel();
+        PipelineModel pm= (PipelineModel) model.bestModel();
+        this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0] ;
         save(model);
         return evaluate(dts[1]);
     }
