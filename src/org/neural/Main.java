@@ -10,18 +10,22 @@ import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 
 
 public class Main {
     private static final String NOW_FILE = "https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json";
     private static Logger logger = Logger.getLogger(String.valueOf(Main.class));
+    private static FileHandler logFile=null;
     private static MySpark spark=null;
     private static Datas stations=null;
     private static String filter="PARADIS";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException, ParseException {
+
+        logger.addHandler(new FileHandler("./files/logfile.txt"));
 
         Integer port=9999;
         if(args.length>0)port= Integer.valueOf(args[0]);
@@ -38,11 +42,13 @@ public class Main {
         spark=new MySpark("Java Spark SQL basic example");
         stations=new Datas(spark);
 
+        //Récupération du fichier
         final Runnable commandRefresh = new Runnable() {
             public void run() {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
+                        logger.info("Récuperation d'un fichier velib");
                         stations.add(Tools.getStations(Tools.getData(null),1.0,null),spark.getSession());
                     }
                 } catch (IOException e) {
@@ -59,14 +65,18 @@ public class Main {
         final Runnable trainRefresh= new Runnable() {
             public void run() {
                 try {
-                    spark.train(stations,10000);
+                    logger.info("New train task");
+                    if(stations.getSize()==0)stations=new Datas(spark.getSession(),"./files",null);
+                    spark.train(stations,100);
                 } catch (IOException e) {
                     e.printStackTrace();
+                } catch (ParseException e) {
+                    e.printStackTrace();
                 }
-                scheduler.schedule(this,100, TimeUnit.MINUTES);
+                scheduler.schedule(this,5, TimeUnit.MINUTES);
             }
         };
-        scheduler.schedule(commandRefresh,100,TimeUnit.MINUTES);
+        scheduler.schedule(trainRefresh,3,TimeUnit.MINUTES);
 
 
         Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
@@ -163,6 +173,19 @@ public class Main {
             return spark.showWeights();
         });
 
+        Spark.get("/log", (request, response) -> {
+            BufferedReader f = new BufferedReader(new InputStreamReader(new FileInputStream("./files/logfile.txt")));
+            String rc="";
+            String line=f.readLine();
+            while(line!=null){
+                rc+=line;
+                line=f.readLine();
+            }
+            f.close();
+            return rc;
+
+        });
+
         Spark.get("/raz", (request, response) -> {
             File f=new File("./files/velib.w");
             f.delete();
@@ -198,6 +221,7 @@ public class Main {
 
             html+="<h2>Tools</h2>";
             html+="<a href='localhost:4040'>Admin</a><br>";
+            html+="<a href='./log'>Log</a><br>";
 
 
             return html;

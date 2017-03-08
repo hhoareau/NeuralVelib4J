@@ -20,10 +20,7 @@ import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
 import scala.collection.JavaConversions;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -48,13 +45,13 @@ public class MySpark {
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier()
                 .setLabelCol("label");
 
-        load(mlp);
-
         Collection<int[]> layers = new HashSet<>();
-        layers.add(new int[]{inputLayer, 20, 20, 4});
+        layers.add(new int[]{inputLayer, 25, 20, 4});
         //layers.add(new int[]{inputLayer,50,4});
         //layers.add(new int[]{inputLayer,7,7,7,4});
         //layers.add(new int[]{inputLayer,50,50,4});
+
+        load(mlp, (int[]) layers.toArray()[0]);
 
         Pipeline pipeline=new Pipeline().setStages(new PipelineStage[] {mlp});
 
@@ -81,7 +78,10 @@ public class MySpark {
         PipelineModel pm = (PipelineModel) model.bestModel();
         this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0];
 
-        FileOutputStream f=new FileOutputStream("./files/velib.w");
+        String path="./files/mlp-";
+        for(int i:this.model.layers())path+=String.valueOf(i)+"-";
+
+        FileOutputStream f=new FileOutputStream(path+".weights");
         String s="";
         for(Double d:this.model.weights().toArray())s+=d+";";
         f.write(s.getBytes());
@@ -89,9 +89,12 @@ public class MySpark {
 
     }
 
-    public MultilayerPerceptronClassifier load(MultilayerPerceptronClassifier mlp) {
+    public MultilayerPerceptronClassifier load(MultilayerPerceptronClassifier mlp,int[] layers) {
         try {
-            FileInputStream f = new FileInputStream("./files/velib.w");
+            String path="./files/mlp-";
+            for(int i:layers)path+=String.valueOf(i)+"-";
+
+            FileInputStream f = new FileInputStream(path+".weights");
             if(f!=null){
                 String ss[]=new Scanner(f).useDelimiter("\\Z").next().split(";");
                 double ld[]= new double[ss.length];
@@ -112,7 +115,13 @@ public class MySpark {
         Dataset<Row> r=Tools.createTrain(datas);
         Dataset<Row>[] dts = r.randomSplit(new double[]{0.7, 0.3});
         createPipeline(iter);
-        CrossValidatorModel model= crossValidator.fit(dts[0]);
+        CrossValidatorModel model=null;
+        try{
+            model= crossValidator.fit(dts[0]);
+        }catch (IllegalArgumentException e){
+            new File("./files/velib.w").delete();
+        }
+
         PipelineModel pm= (PipelineModel) model.bestModel();
         this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0] ;
         save(model);
@@ -120,7 +129,8 @@ public class MySpark {
     }
 
     public String showWeights() throws IOException {
-        return this.model.explainParams();
+        if(this.model==null)return "you must build a model before ask weights";
+        return this.model.weights().toString().replaceAll(",","<br>");
     }
 
 
