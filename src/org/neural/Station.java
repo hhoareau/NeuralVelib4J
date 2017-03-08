@@ -210,13 +210,15 @@ public class Station implements Serializable,Comparable<Station> {
         this.label = label;
     }
 
+
+
     public Vector toVector() {
         DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.minute,this.soleil});
         return v;
     }
 
     public String[] colsName() {
-        return new String[]{"id","day","hour","minute"};
+        return new String[]{"id","day","hour","soleil"};
     }
 
     public String toHTML(){

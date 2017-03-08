@@ -58,9 +58,7 @@ public class Tools {
         return rc;
     }
 
-    public static Dataset<Row> createTrain(Datas dt) throws IOException {
-        return createTrain(dt.getData());
-    }
+
 
     public static Dataset<Row> createTrain(Dataset<Row> dt) throws IOException {
         VectorAssembler assembler = new VectorAssembler()

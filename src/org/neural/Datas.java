@@ -1,5 +1,8 @@
 package org.neural;
 
+import org.apache.spark.ml.feature.StringIndexer;
+import org.apache.spark.ml.feature.StringIndexerModel;
+import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -54,6 +57,38 @@ public class Datas {
         df.persist();
     }
 
+    public Dataset<Row> createTrain() throws IOException {
+        df.show(30,false);
+        Dataset<Row> light=df.drop(new String[]{"lg","lt","name","dtUpdate","minute","nPlace","nBike"});
+
+        StringIndexerModel indexer = new StringIndexer()
+                .setInputCol("id")
+                .setOutputCol("idStation")
+                .fit(light);
+        Dataset<Row> indexed = indexer.transform(light);
+
+        indexed=indexed.drop("id");
+        indexed.show(30,false);
+        indexed=indexed.withColumnRenamed("idStation","id");
+
+        indexed.show(30,false);
+
+        /*
+        Dataset<Row> encoded1= new OneHotEncoder().setInputCol("hour").setOutputCol("hourVect").transform(indexed);
+        Dataset<Row> encoded2 = new OneHotEncoder().setInputCol("idStation").setOutputCol("idStationVect").transform(encoded1);
+        Dataset<Row> encoded3 = new OneHotEncoder().setInputCol("soleil").setOutputCol("soleilVect").transform(encoded2);
+        Dataset<Row> encoded4 = new OneHotEncoder().setInputCol("day").setOutputCol("dayVect").transform(encoded3);
+        */
+
+        VectorAssembler assembler = new VectorAssembler().setInputCols(new Station().colsName()).setOutputCol("features");
+        Dataset<Row> rc=assembler.transform(indexed);
+
+        rc=rc.drop(new Station().colsName());
+        rc.show(30,false);
+
+        return rc;
+    }
+
     public Datas(Double part,String filter) throws IOException, ParseException {
         File dir=new File("./files/");
         Double nb=dir.listFiles().length*part;
@@ -70,6 +105,13 @@ public class Datas {
         size=0L;
     }
 
+    /**
+     *
+     * @param stations
+     * @param spark
+     * @throws IOException
+     * @throws ParseException
+     */
     public void add(List<Station> stations,SparkSession spark) throws IOException, ParseException {
         int limit=3;
         int nStations=stations.size()/limit;

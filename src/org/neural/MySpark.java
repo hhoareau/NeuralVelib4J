@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Scanner;
+import java.util.logging.Logger;
 
 import static org.apache.spark.sql.SparkSession.builder;
 
@@ -37,6 +38,7 @@ public class MySpark {
     private SparkSession spark=null;
     private MultilayerPerceptronClassificationModel model=null;
     private CrossValidator crossValidator=null;
+    private static Logger logger = Logger.getLogger(String.valueOf(MySpark.class));
 
 
     public void createPipeline(Integer maxIter)  {
@@ -52,6 +54,7 @@ public class MySpark {
         //layers.add(new int[]{inputLayer,50,50,4});
 
         load(mlp, (int[]) layers.toArray()[0]);
+        //if(mlp.getInitialWeights()!=null)logger.warning("weight "+mlp.getInitialWeights().toString());
 
         Pipeline pipeline=new Pipeline().setStages(new PipelineStage[] {mlp});
 
@@ -99,10 +102,12 @@ public class MySpark {
                 String ss[]=new Scanner(f).useDelimiter("\\Z").next().split(";");
                 double ld[]= new double[ss.length];
                 for(int i=0;i<ss.length;i++)ld[i]= Double.parseDouble(ss[i]);
+
                 mlp.setInitialWeights(new DenseVector(ld).asML());
                 f.close();
             }
         } catch (FileNotFoundException e) {
+            //mlp.setInitialWeights(Vectors.zeros(new Station().colsName().length));
             //e.printStackTrace();
         } catch (IOException e) {
             //e.printStackTrace();
@@ -112,7 +117,7 @@ public class MySpark {
 
 
     public String train(Datas datas,Integer iter) throws IOException {
-        Dataset<Row> r=Tools.createTrain(datas);
+        Dataset<Row> r=datas.createTrain();
         Dataset<Row>[] dts = r.randomSplit(new double[]{0.7, 0.3});
         createPipeline(iter);
         CrossValidatorModel model=null;
@@ -156,6 +161,8 @@ public class MySpark {
         // Overall statistics
         rc+="Accuracy = " + metrics.accuracy()+"<br>";
 
+        rc+="Recall : "+metrics.recall();
+
         // Stats by labels
         for (int i = 0; i < metrics.labels().length; i++)
             rc+=String.format("<br>Class %f precision = %f / recall = %f / score = %f", metrics.labels()[i],metrics.precision(metrics.labels()[i]),metrics.recall(metrics.labels()[i]),metrics.fMeasure(metrics.labels()[i]));
@@ -187,7 +194,7 @@ public class MySpark {
 
     public String evaluate(Datas stations) throws IOException {
         if(model==null)train(stations,1);
-        return this.evaluate(Tools.createTrain(stations).randomSplit(new double[]{0.3,0.6})[0]);
+        return this.evaluate(stations.createTrain().randomSplit(new double[]{0.3,0.6})[0]);
     }
 
 }

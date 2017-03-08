@@ -140,7 +140,7 @@ public class Main {
         });
 
         Spark.get("/persist", (request, response) -> {
-            Tools.createTrain(stations);
+            stations.createTrain().persist();
             return "save";
         });
 
@@ -212,7 +212,7 @@ public class Main {
             html+="<a href='./razstations'>Raz stations</a><br>";
 
             html+="<h2>Train</h2>";
-            html+="<a href='./train/100'>Train on all</a><br>";
+            html+="<a href='./train/10'>Train on all with 10</a><br>";
             html+="<a href='./evaluate'>Evaluate</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";
