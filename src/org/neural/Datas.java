@@ -1,7 +1,7 @@
 package org.neural;
 
+import org.apache.spark.ml.feature.Normalizer;
 import org.apache.spark.ml.feature.StringIndexer;
-import org.apache.spark.ml.feature.StringIndexerModel;
 import org.apache.spark.ml.feature.VectorAssembler;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -14,6 +14,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,7 +41,7 @@ public class Datas {
         List<Station> stats=new ArrayList<>();
         for (File f : new File(path).listFiles())
             if(f.getName().indexOf(".json")>0){
-                logger.info("Chargement de "+f.getName());
+                logger.warning("Chargement de "+f.getName());
                 stats.addAll(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0,filter));
                 if(stats.size()>100000){
                     add(stats, spark);
@@ -57,33 +58,37 @@ public class Datas {
         df.persist();
     }
 
+    public Datas(SparkSession spark) {
+        logger.setLevel(Level.INFO);
+        this.size=0L;
+    }
+
+    public Datas(SparkSession spark,Station s) throws IOException, ParseException {
+        logger.setLevel(Level.INFO);
+        this.size=0L;
+        this.add(Arrays.asList(s),spark);
+    }
+
     public Dataset<Row> createTrain() throws IOException {
         df.show(30,false);
-        Dataset<Row> light=df.drop(new String[]{"lg","lt","name","dtUpdate","minute","nPlace","nBike"});
+        Dataset<Row> rc=df.drop(new String[]{"lg","lt","name","dtUpdate","minute","nPlace","nBike"});
 
-        StringIndexerModel indexer = new StringIndexer()
-                .setInputCol("id")
-                .setOutputCol("idStation")
-                .fit(light);
-        Dataset<Row> indexed = indexer.transform(light);
-
-        indexed=indexed.drop("id");
-        indexed.show(30,false);
-        indexed=indexed.withColumnRenamed("idStation","id");
-
-        indexed.show(30,false);
+        rc = new StringIndexer().setInputCol("id").setOutputCol("id_index").fit(rc).transform(rc);
+        rc.show(30,false);
 
         /*
         Dataset<Row> encoded1= new OneHotEncoder().setInputCol("hour").setOutputCol("hourVect").transform(indexed);
-        Dataset<Row> encoded2 = new OneHotEncoder().setInputCol("idStation").setOutputCol("idStationVect").transform(encoded1);
+        Dataset<Row> encoded2 = new OneHotEncoder().setInputCol("id").setOutputCol("idVect").transform(encoded1);
         Dataset<Row> encoded3 = new OneHotEncoder().setInputCol("soleil").setOutputCol("soleilVect").transform(encoded2);
         Dataset<Row> encoded4 = new OneHotEncoder().setInputCol("day").setOutputCol("dayVect").transform(encoded3);
         */
 
-        VectorAssembler assembler = new VectorAssembler().setInputCols(new Station().colsName()).setOutputCol("features");
-        Dataset<Row> rc=assembler.transform(indexed);
+        rc=new VectorAssembler().setInputCols(new String[]{"hour","id_index","soleil","day"}).setOutputCol("tempFeatures").transform(rc);
 
-        rc=rc.drop(new Station().colsName());
+        rc=new Normalizer().setInputCol("tempFeatures").setOutputCol("features").transform(rc);
+
+        rc=rc.drop(new Station().colsName()).drop("tempFeatures");
+
         rc.show(30,false);
 
         return rc;
@@ -164,8 +169,8 @@ public class Datas {
         if(f!=null)this.df=spark.readStream().schema(this.df.schema()).load();
     }
 
-    public String showData() {
-        return Tools.DatasetToHTML(this.df.showString(200,100));
+    public String showData(Integer line) {
+        return Tools.DatasetToHTML(this.df.showString(line,100));
     }
 
     public Dataset<Row> getData() {

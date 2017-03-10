@@ -20,10 +20,12 @@ public class Main {
     private static FileHandler logFile=null;
     private static MySpark spark=null;
     private static Datas stations=null;
-    private static String filter="PARADIS";
+    private static String filter="PAR";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException, ParseException {
+
+        System.setProperty("hadoop.home.dir", "c:/temp");
 
         logger.addHandler(new FileHandler("./files/logfile.txt"));
 
@@ -40,7 +42,7 @@ public class Main {
 
         logger.info("Lancement de l'environnement spark");
         spark=new MySpark("Java Spark SQL basic example");
-        stations=new Datas(spark);
+        stations=new Datas(spark.getSession(),"./files",filter);
 
         //Récupération du fichier
         final Runnable commandRefresh = new Runnable() {
@@ -73,10 +75,10 @@ public class Main {
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
-                scheduler.schedule(this,5, TimeUnit.MINUTES);
+                scheduler.schedule(this,10, TimeUnit.MINUTES);
             }
         };
-        scheduler.schedule(trainRefresh,3,TimeUnit.MINUTES);
+        //scheduler.schedule(trainRefresh,10,TimeUnit.MINUTES);
 
 
         Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
@@ -87,7 +89,7 @@ public class Main {
             if(s!=null){
                 Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
                 html+="Input : "+station.toVector().toString();
-                html+=Tools.DatasetToHTML(spark.predict(station));
+                html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),s)));
                 return html;
             }
             return html;
@@ -104,11 +106,12 @@ public class Main {
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
                     html+="Input : "+station.toVector().toString()+"<br><br>";
-                    html+=Tools.DatasetToHTML(spark.predict(station));
+                    html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),station)));
                     return html;
             }
             return html;
         });
+
 
 
         Spark.get("/evaluate", (request, response) -> {
@@ -146,7 +149,7 @@ public class Main {
 
 
         Spark.get("/show", (request, response) -> {
-            return stations.showData();
+            return stations.showData(1000);
         });
 
 
@@ -166,11 +169,23 @@ public class Main {
 
         Spark.get("/train/:iter", (request, response) -> {
             if(stations.getSize()==0)return "load stations before train";
-            return spark.train(stations, Integer.valueOf(request.params("iter")));
+
+            Integer nIter=Integer.valueOf(request.params("iter"));
+            if(nIter<6)
+                return spark.train(stations, nIter);
+            else{
+                int step=nIter/6;
+                String rc="";
+                for(int i=nIter;i>=0;i=i-step){
+                    rc+=spark.train(stations, step);
+                    logger.warning(rc);
+                }
+                return rc;
+            }
         });
 
         Spark.get("/weights", (request, response) -> {
-            return spark.showWeights();
+            return spark.showWeights(null);
         });
 
         Spark.get("/log", (request, response) -> {
@@ -212,7 +227,7 @@ public class Main {
             html+="<a href='./razstations'>Raz stations</a><br>";
 
             html+="<h2>Train</h2>";
-            html+="<a href='./train/10'>Train on all with 10</a><br>";
+            html+="<a href='./train/2'>Train on all with 2</a><br>";
             html+="<a href='./evaluate'>Evaluate</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";
