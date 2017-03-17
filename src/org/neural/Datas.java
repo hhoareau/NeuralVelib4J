@@ -8,10 +8,7 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.storage.StorageLevel;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,7 +68,7 @@ public class Datas {
 
     public Dataset<Row> createTrain() throws IOException {
         df.show(30,false);
-        Dataset<Row> rc=df.drop(new String[]{"lg","lt","name","dtUpdate","minute","nPlace","nBike"});
+        Dataset<Row> rc=df.drop(new String[]{"lg","lt","name","dtUpdate","nPlace","nBike"});
 
         rc = new StringIndexer().setInputCol("id").setOutputCol("id_index").fit(rc).transform(rc);
         rc.show(30,false);
@@ -83,7 +80,7 @@ public class Datas {
         Dataset<Row> encoded4 = new OneHotEncoder().setInputCol("day").setOutputCol("dayVect").transform(encoded3);
         */
 
-        rc=new VectorAssembler().setInputCols(new String[]{"hour","id_index","soleil","day"}).setOutputCol("tempFeatures").transform(rc);
+        rc=new VectorAssembler().setInputCols(new String[]{"hour","minute","id_index","soleil","day"}).setOutputCol("tempFeatures").transform(rc);
 
         rc=new Normalizer().setInputCol("tempFeatures").setOutputCol("features").transform(rc);
 
@@ -173,7 +170,15 @@ public class Datas {
         return Tools.DatasetToHTML(this.df.showString(line,100));
     }
 
-    public Dataset<Row> getData() {
-        return this.df;
+    public Dataset<Row> getData() {return this.df;}
+
+
+    public String toCSV() {
+        String s="";
+        for(Row r:this.df.select("id","x","nPlace","nBike").orderBy("id","x").collectAsList()){
+            for(int i=0;i<r.size();i++)s+=String.valueOf(r.get(i))+";";
+            s=s.substring(0,s.length()-1)+"\r\n";
+        }
+        return s;
     }
 }

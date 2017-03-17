@@ -63,22 +63,21 @@ public class Main {
         };
         scheduler.schedule(commandRefresh,10,TimeUnit.MINUTES);
 
-
         final Runnable trainRefresh= new Runnable() {
             public void run() {
                 try {
                     logger.info("New train task");
                     if(stations.getSize()==0)stations=new Datas(spark.getSession(),"./files",null);
-                    spark.train(stations,100);
+                    spark.train(stations,500);
                 } catch (IOException e) {
                     e.printStackTrace();
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
-                scheduler.schedule(this,10, TimeUnit.MINUTES);
+                scheduler.schedule(this,100, TimeUnit.MINUTES);
             }
         };
-        //scheduler.schedule(trainRefresh,10,TimeUnit.MINUTES);
+        //scheduler.schedule(trainRefresh,1,TimeUnit.MINUTES);
 
 
         Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
@@ -153,6 +152,11 @@ public class Main {
         });
 
 
+        Spark.get("/toCSV", (request, response) -> {
+            response.type("text/csv");
+            return stations.toCSV();
+        });
+
 
         Spark.get("/list", (request, response) -> {
             String html="Files :<br>";
@@ -174,7 +178,7 @@ public class Main {
             if(nIter<6)
                 return spark.train(stations, nIter);
             else{
-                int step=nIter/6;
+                int step=nIter/5;
                 String rc="";
                 for(int i=nIter;i>=0;i=i-step){
                     rc+=spark.train(stations, step);
@@ -235,9 +239,9 @@ public class Main {
             html+="<a href='./raz'>Raz</a><br>";
 
             html+="<h2>Tools</h2>";
+            html+="<a href='./toCSV'>CSV</a><br>";
             html+="<a href='localhost:4040'>Admin</a><br>";
             html+="<a href='./log'>Log</a><br>";
-
 
             return html;
         });

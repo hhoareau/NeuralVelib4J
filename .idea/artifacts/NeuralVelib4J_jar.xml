@@ -5,10 +5,10 @@
       <element id="archive" name="NeuralVelib4J.jar">
         <element id="module-output" name="NeuralVelib4J" />
       </element>
-      <element id="library" level="project" name="org.apache.spark:spark-sql_2.10:Latest" />
       <element id="library" level="project" name="com.sparkjava:spark-core:2.5.5" />
-      <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
+      <element id="library" level="project" name="org.apache.spark:spark-sql_2.10:Latest" />
       <element id="library" level="project" name="org.apache.spark:spark-mllib_2.10:2.1.0" />
+      <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
       <element id="library" level="project" name="org.nd4j:nd4j-netlib-blas:0.4-rc3.6" />
     </root>
   </artifact>

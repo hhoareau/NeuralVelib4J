@@ -10,11 +10,11 @@ RUN apt-get install -y libgfortran3
 RUN apt-get install -y clinfo
 
 #Installation de BLAS
-RUN apt-get install -y libatlas3-base libopenblas-base
+#RUN apt-get install -y libatlas3-base libopenblas-base
 #RUN update-alternatives --set libblas.so /usr/lib/openblas-base/libblas.so.3
-RUN update-alternatives --set libblas.so.3 /usr/lib/openblas-base/libblas.so.3
+#RUN update-alternatives --set libblas.so.3 /usr/lib/openblas-base/libblas.so.3
 #RUN update-alternatives --set liblapack.so /usr/lib/openblas-base/liblapack.so.3
-RUN update-alternatives --set liblapack.so.3 /usr/lib/openblas-base/liblapack.so.3
+#RUN update-alternatives --set liblapack.so.3 /usr/lib/openblas-base/liblapack.so.3
 
 WORKDIR /home
 EXPOSE 9999 9999

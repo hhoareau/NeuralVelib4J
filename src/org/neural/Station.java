@@ -26,6 +26,8 @@ public class Station implements Serializable,Comparable<Station> {
     Integer hour=0;
     Double nPlace=0.0; //0,1 ou 2
     Double label =0.0;
+    Integer x=0;      //x = day * 7 + hour * 24 + minutes
+
 
     /**
      *
@@ -63,6 +65,7 @@ public class Station implements Serializable,Comparable<Station> {
         this.day=dt.getDay();
         this.minute=Math.round(dt.getMinutes()/5)*5;
         this.hour=dt.getHours();
+        this.x=this.day*24+this.hour*60+this.minute;
     }
 
 
@@ -73,6 +76,7 @@ public class Station implements Serializable,Comparable<Station> {
         this.hour=hour;
         this.minute=Math.round(minute/5)*5;
         this.soleil=soleil;
+        this.x=this.day*24+this.hour*60+this.minute;
     }
 
     public Station() {}
@@ -84,6 +88,7 @@ public class Station implements Serializable,Comparable<Station> {
         this.day=new Date(date).getDay();
         this.soleil=s.getSoleil();
         this.name=s.getName();
+        this.x=this.day*24+this.hour*60+this.minute;
     }
 
     public Station(Station s, Integer day, Integer hour, Integer minute, Double soleil) {
@@ -96,6 +101,7 @@ public class Station implements Serializable,Comparable<Station> {
         this.nPlace=s.nPlace;
         this.label =s.label;
         this.name=s.getName();
+        this.x=s.x;
     }
 
     public Station(Row r) {
@@ -109,6 +115,7 @@ public class Station implements Serializable,Comparable<Station> {
         this.label =r.getDouble(4);
         this.soleil=r.getDouble(11);
         this.dtUpdate=r.getLong(1);
+        this.x=r.getInt(12);
     }
 
 
@@ -155,6 +162,7 @@ public class Station implements Serializable,Comparable<Station> {
     public Integer getMinute() {
         return minute;
     }
+
 
     public Double getnBike() {
         return nBike;
@@ -211,6 +219,14 @@ public class Station implements Serializable,Comparable<Station> {
     }
 
 
+    public Integer getX() {
+        return x;
+    }
+
+    public void setX(Integer x) {
+        this.x = x;
+    }
+
 
     public Vector toVector() {
         DenseVector v=new DenseVector(new double[]{this.id,this.day,this.hour,this.minute,this.soleil});
@@ -218,7 +234,7 @@ public class Station implements Serializable,Comparable<Station> {
     }
 
     public String[] colsName() {
-        return new String[]{"id","day","hour","soleil"};
+        return new String[]{"id","day","hour","soleil","minute"};
     }
 
     public String toHTML(){
