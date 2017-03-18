@@ -36,23 +36,27 @@ public class MySpark {
     private MultilayerPerceptronClassificationModel model=null;
     private CrossValidator crossValidator=null;
     private static Logger logger = Logger.getLogger(String.valueOf(MySpark.class));
+    private int[] layers=null;
 
 
-    public MultilayerPerceptronClassifier createPipeline(Integer maxIter) throws IOException {
+    public MultilayerPerceptronClassifier createPipeline(Integer maxIter,Collection<int[]> layers) throws IOException {
         // create the trainer and set its parameters
-        int inputLayer=new Station().colsName().length;
 
         MultilayerPerceptronClassifier mlp = new MultilayerPerceptronClassifier().setLabelCol("label");
-        if(new File("./velib.model").exists())
-            mlp=MultilayerPerceptronClassifier.load("./velib.model");
+        if(new File("./velib.model").exists())mlp=MultilayerPerceptronClassifier.load("./velib.model");
 
-        Collection<int[]> layers = new HashSet<>();
-        layers.add(new int[]{inputLayer, 15, 20, 4});
-        //layers.add(new int[]{inputLayer,50,4});
-        //layers.add(new int[]{inputLayer,7,7,7,4});
-        //layers.add(new int[]{inputLayer,50,50,4});
 
-        mlp=load(mlp, (int[]) layers.toArray()[0]);
+        if(layers==null){
+            layers=new HashSet<>();
+            if(this.layers==null){
+                logger.severe("You must find a model before");
+                return null;
+            }
+
+            layers.add(this.layers);
+            mlp=load(mlp, (int[]) layers.toArray()[0]);
+        }
+
 
         //if(mlp.getInitialWeights()!=null)logger.warning("weight "+mlp.getInitialWeights().toString());
 
@@ -73,10 +77,10 @@ public class MySpark {
        return mlp;
     }
 
-    public MySpark(String s) throws IOException {
-        this.spark=builder().master("local[4]").appName(s).getOrCreate();
+    public MySpark(String s,Integer nThreads) throws IOException {
+        this.spark=builder().master("local["+nThreads+"]").appName(s).getOrCreate();
         this.spark.sparkContext().setLogLevel("WARN");
-        createPipeline(10);
+        createPipeline(10,null);
     }
 
 
@@ -117,17 +121,30 @@ public class MySpark {
 
 
     public void initModel() throws IOException {
-        MultilayerPerceptronClassifier mlp = createPipeline(0);
+        MultilayerPerceptronClassifier mlp = createPipeline(0,null);
+    }
+
+    public String findModel(Datas datas,Integer iter,Collection<int[]> layers) throws IOException {
+        Dataset<Row>[] dts = datas.createTrain().randomSplit(new double[]{0.6, 0.4});
+        createPipeline(iter,layers);
+        PipelineModel pm= (PipelineModel) crossValidator.fit(dts[0].cache()).bestModel();
+        this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0] ;
+        save(this.model);
+        this.layers=this.model.layers();
+
+        return evaluate(dts[1]);
     }
 
     public String train(Datas datas,Integer iter) throws IOException {
         Dataset<Row>[] dts = datas.createTrain().randomSplit(new double[]{0.6, 0.4});
-        createPipeline(iter);
+        createPipeline(iter,null);
         PipelineModel pm= (PipelineModel) crossValidator.fit(dts[0].cache()).bestModel();
+
         this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0] ;
         save(this.model);
         return evaluate(dts[1]);
     }
+
 
 
     public String showWeights() throws IOException {
@@ -202,4 +219,9 @@ public class MySpark {
         return this.evaluate(stations.createTrain().randomSplit(new double[]{0.3,0.6})[0]);
     }
 
+    public String showLayers() {
+        String rc="";
+        for(int i:this.layers)rc+=i+"-";
+        return rc;
+    }
 }

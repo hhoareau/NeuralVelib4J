@@ -173,11 +173,15 @@ public class Datas {
     public Dataset<Row> getData() {return this.df;}
 
 
-    public String toCSV() {
-        String s="";
-        for(Row r:this.df.select("id","x","nPlace","nBike").orderBy("id","x").collectAsList()){
-            for(int i=0;i<r.size();i++)s+=String.valueOf(r.get(i))+";";
-            s=s.substring(0,s.length()-1)+"\r\n";
+    public String toCSV(String sepCol,String sepLine) {
+        String s="id,name,ln,lt,x,dtUpdate,bikes,places,nPlace,nBike;".replaceAll(",",sepCol).replaceAll(";",sepLine);
+        List<Row> rows = this.df.select("id", "name","lg", "lt", "x", "dtUpdate","bikes","places","nPlace", "nBike").orderBy("id", "x").collectAsList();
+        int size=rows.size();
+        for(Row r:rows){
+            size--;
+            String line="";
+            for(int i=0;i<r.size();i++)line+=String.valueOf(r.get(i))+sepCol;
+            s+=line.substring(0,line.length()-1)+sepLine;
         }
         return s;
     }

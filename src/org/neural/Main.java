@@ -20,7 +20,7 @@ public class Main {
     private static FileHandler logFile=null;
     private static MySpark spark=null;
     private static Datas stations=null;
-    private static String filter="PAR";
+    private static String filter="PARADIS";
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException, ParseException {
@@ -41,7 +41,7 @@ public class Main {
         Tools.createCertificate();
 
         logger.info("Lancement de l'environnement spark");
-        spark=new MySpark("Java Spark SQL basic example");
+        spark=new MySpark("Java Spark SQL basic example",16);
         stations=new Datas(spark.getSession(),"./files",filter);
 
         //Récupération du fichier
@@ -51,7 +51,7 @@ public class Main {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
                         logger.info("Récuperation d'un fichier velib");
-                        stations.add(Tools.getStations(Tools.getData(null),1.0,null),spark.getSession());
+                        stations.add(Tools.getStations(Tools.getData("./files/velib_"+System.currentTimeMillis()+".json"),1.0,null),spark.getSession());
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -61,7 +61,7 @@ public class Main {
                 scheduler.schedule(this,1, TimeUnit.MINUTES);
             }
         };
-        scheduler.schedule(commandRefresh,10,TimeUnit.MINUTES);
+        commandRefresh.run();
 
         final Runnable trainRefresh= new Runnable() {
             public void run() {
@@ -154,7 +154,7 @@ public class Main {
 
         Spark.get("/toCSV", (request, response) -> {
             response.type("text/csv");
-            return stations.toCSV();
+            return stations.toCSV("\t","\r\n");
         });
 
 
@@ -170,6 +170,28 @@ public class Main {
         Spark.get("/stations", (request, response) -> {
             return stations.toHTML(2000);
         });
+
+
+        Spark.get("/search/:iter", (request, response) -> {
+            if(stations.getSize()==0)return "load stations before train";
+            Integer nIter=Integer.valueOf(request.params("iter"));
+
+            int inputLayer=new Station().colsName().length;
+            int nOut=9;
+
+            Collection<int[]> layers= new HashSet<>();
+            layers.add(new int[]{inputLayer, 20, 20, nOut});
+            layers.add(new int[]{inputLayer,60,nOut});
+            layers.add(new int[]{inputLayer,50,50,nOut});
+            layers.add(new int[]{inputLayer,10,10,10,nOut});
+            layers.add(new int[]{inputLayer,5,5,5,nOut});
+
+            String rc=spark.findModel(stations, nIter,layers);
+            rc+="Meileur model : "+spark.showLayers()+"<br>";
+
+            return rc;
+        });
+
 
         Spark.get("/train/:iter", (request, response) -> {
             if(stations.getSize()==0)return "load stations before train";
@@ -231,7 +253,8 @@ public class Main {
             html+="<a href='./razstations'>Raz stations</a><br>";
 
             html+="<h2>Train</h2>";
-            html+="<a href='./train/2'>Train on all with 2</a><br>";
+            html+="<a href='./search/200'>Find model with 200</a><br>";
+            html+="<a href='./train/1000'>Train on all with 1000</a><br>";
             html+="<a href='./evaluate'>Evaluate</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>";
             html+="<a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>";

@@ -15,7 +15,10 @@ RUN update-alternatives --set libblas.so.3 /usr/lib/openblas-base/libblas.so.3
 RUN update-alternatives --set liblapack.so.3 /usr/lib/openblas-base/liblapack.so.3
 
 WORKDIR /home
-EXPOSE 9999 9999
-EXPOSE 4040 9998
+RUN mldir files
+VOLUME /files
+
+EXPOSE 9999
+EXPOSE 4040
 
 CMD ["/usr/lib/jvm/java-8-oracle/bin/java", "-Xmx1024m", "-cp", "/home/NeuralVelib4J.jar","org.neural.Main"]

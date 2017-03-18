@@ -16,6 +16,10 @@ RUN apt-get install -y clinfo
 #RUN update-alternatives --set liblapack.so /usr/lib/openblas-base/liblapack.so.3
 #RUN update-alternatives --set liblapack.so.3 /usr/lib/openblas-base/liblapack.so.3
 
+RUN mldir files
+VOLUME /files
+
 WORKDIR /home
-EXPOSE 9999 9999
+EXPOSE 9999
+EXPOSE 4040
 CMD ["java", "-Xmx1024m", "-cp", "/home/NeuralVelib4J.jar","org.neural.Main"]

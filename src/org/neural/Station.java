@@ -24,6 +24,8 @@ public class Station implements Serializable,Comparable<Station> {
     Integer minute=0;
     Integer day=0;
     Integer hour=0;
+    Integer places=0;
+    Integer bikes=0;
     Double nPlace=0.0; //0,1 ou 2
     Double label =0.0;
     Integer x=0;      //x = day * 7 + hour * 24 + minutes
@@ -37,25 +39,23 @@ public class Station implements Serializable,Comparable<Station> {
     public Station(JsonNode jnode, Double temperature) throws ParseException {
         this.id=jnode.get("number").asLong();
         this.name=jnode.get("name").asText();
+
         String sDate=jnode.get("last_update").asText();
         sDate=sDate.split("\\+")[0];
         Date dt=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").parse(sDate);
         this.dtUpdate=dt.getTime();
 
-        this.nPlace=jnode.get("available_bike_stands").asDouble();
-        if(this.nPlace>3)
-            this.nPlace=1.0;
-        else
-            this.nPlace=0.0;
+        this.places=jnode.get("available_bike_stands").asInt();
+        if(this.places==0)this.nBike=0.0;
+        if(this.places>3 && this.places<10)this.nPlace=1.0;
+        if(this.places>=10)this.nPlace=2.0;
 
-        this.nBike=jnode.get("available_bikes").asDouble();
-        if(this.nBike>3)
-            this.nBike=1.0;
-        else
-            this.nBike=0.0;
+        this.bikes=jnode.get("available_bikes").asInt();
+        if(this.bikes==0)this.nBike=0.0;
+        if(this.bikes>3 && this.bikes<10)this.nBike=1.0;
+        if(this.bikes>=10)this.nBike=2.0;
 
-        this.label =this.nBike*2+this.nPlace;
-
+        this.label =this.nBike*3+this.nPlace; //donc 9 valeurs possible de 0 à 8 (2*3+2)
 
         this.lt= Double.valueOf(jnode.get("position").get(0).asDouble());
         this.lg= Double.valueOf(jnode.get("position").get(1).asDouble());
@@ -98,6 +98,8 @@ public class Station implements Serializable,Comparable<Station> {
         this.minute=minute;
         this.soleil=soleil;
         this.nBike=s.nBike;
+        this.bikes=s.bikes;
+        this.places=s.places;
         this.nPlace=s.nPlace;
         this.label =s.label;
         this.name=s.getName();
@@ -105,17 +107,21 @@ public class Station implements Serializable,Comparable<Station> {
     }
 
     public Station(Row r) {
-        this.id=r.getLong(3);
-        this.name=r.getString(10);
-        this.day=r.getInt(0);
-        this.hour=r.getInt(2);
-        this.minute=r.getInt(7);
-        this.nBike=r.getDouble(8);
-        this.nPlace=r.getDouble(9);
-        this.label =r.getDouble(4);
-        this.soleil=r.getDouble(11);
-        this.dtUpdate=r.getLong(1);
-        this.x=r.getInt(12);
+        this.id=r.getLong(4);
+        this.name=r.getString(11);
+        this.day=r.getInt(1);
+        this.hour=r.getInt(3);
+        this.minute=r.getInt(8);
+        this.bikes=r.getInt(0);
+        this.places=r.getInt(12);
+        this.lt=r.getDouble(7);
+        this.lg=r.getDouble(6);
+        this.nBike=r.getDouble(9);
+        this.nPlace=r.getDouble(10);
+        this.label =r.getDouble(5);
+        this.soleil=r.getDouble(13);
+        this.dtUpdate=r.getLong(2);
+        this.x=r.getInt(14);
     }
 
 
@@ -179,6 +185,22 @@ public class Station implements Serializable,Comparable<Station> {
 
     public Long getDtUpdate() {
         return dtUpdate;
+    }
+
+    public Integer getPlaces() {
+        return places;
+    }
+
+    public void setPlaces(Integer places) {
+        this.places = places;
+    }
+
+    public Integer getBikes() {
+        return bikes;
+    }
+
+    public void setBikes(Integer bikes) {
+        this.bikes = bikes;
     }
 
     public void setDtUpdate(Long dtUpdate) {
