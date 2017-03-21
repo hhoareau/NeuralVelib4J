@@ -13,5 +13,6 @@
     <orderEntry type="library" name="org.apache.spark:spark-core_2.10:Latest" level="project" />
     <orderEntry type="library" name="org.apache.spark:spark-mllib_2.10:2.1.0" level="project" />
     <orderEntry type="library" name="org.nd4j:nd4j-netlib-blas:0.4-rc3.6" level="project" />
+    <orderEntry type="library" name="org.deeplearning4j:deeplearning4j-ui_2.10:0.8.0" level="project" />
   </component>
 </module>

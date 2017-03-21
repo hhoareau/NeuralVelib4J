@@ -25,13 +25,8 @@ public class Datas {
 
     private static Logger logger = Logger.getLogger(String.valueOf(Datas.class));
 
-    //private List<Station> stations=new ArrayList<>();
     private Dataset<Row> df=null;
     private Long size=0L;
-
-    public Datas() {
-        size=0L;
-    }
 
     public Datas(SparkSession spark,String path,String filter) throws IOException, ParseException {
         logger.setLevel(Level.INFO);
@@ -57,6 +52,7 @@ public class Datas {
 
     public Datas(SparkSession spark) {
         logger.setLevel(Level.INFO);
+        this.df=spark.emptyDataFrame();
         this.size=0L;
     }
 
@@ -68,7 +64,7 @@ public class Datas {
 
     public Dataset<Row> createTrain() throws IOException {
         df.show(30,false);
-        Dataset<Row> rc=df.drop(new String[]{"lg","lt","name","dtUpdate","nPlace","nBike"});
+        Dataset<Row> rc=df.drop(new String[]{"lg","lt","dtUpdate","nPlace","nBike"});
 
         rc = new StringIndexer().setInputCol("id").setOutputCol("id_index").fit(rc).transform(rc);
         rc.show(30,false);
@@ -100,11 +96,6 @@ public class Datas {
                 nb--;
             }
         }
-    }
-
-    public Datas(MySpark spark) throws FileNotFoundException {
-        this.load(spark.getSession());
-        size=0L;
     }
 
     /**
@@ -173,9 +164,21 @@ public class Datas {
     public Dataset<Row> getData() {return this.df;}
 
 
-    public String toCSV(String sepCol,String sepLine) {
-        String s="id,name,ln,lt,x,dtUpdate,bikes,places,nPlace,nBike;".replaceAll(",",sepCol).replaceAll(";",sepLine);
-        List<Row> rows = this.df.select("id", "name","lg", "lt", "x", "dtUpdate","bikes","places","nPlace", "nBike").orderBy("id", "x").collectAsList();
+    public String toCSV(MySpark spark,String sepCol,String sepLine,int[] layer) throws IOException {
+        Dataset<Row> result = spark.use(this.createTrain(),layer);
+
+        result.show(20,false);
+
+        Dataset<Row> toExport=result;
+        toExport.show(20,false);
+
+        String s="";
+        for(String name:toExport.columns())
+            s+=name+sepCol;
+        s+=sepLine;
+
+
+        List<Row> rows = toExport.orderBy("name", "x").collectAsList();
         int size=rows.size();
         for(Row r:rows){
             size--;
