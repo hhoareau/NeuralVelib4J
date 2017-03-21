@@ -149,7 +149,7 @@ public class Main {
         Spark.get("/loadwithfilter/:filter", (request, response) -> {
             filter=request.params("filter");
             stations=new Datas(spark.getSession(),"./files",filter);
-            return stations.toHTML(2000);
+            return stations.getSize();
         });
 
         Spark.get("/persist", (request, response) -> {
@@ -289,19 +289,21 @@ public class Main {
 
             html+="<script>function httpGet(service,func){" +
                     "var xhr = new XMLHttpRequest();xhr.open('GET', service, true);" +
-                    "xhr.onreadystatechange = function(e) {if (xhr.readyState == 4)func(xhr.responseText);};" +
-                    "xhr.send();" +
-                    "};</script>";
+                    "xhr.onreadystatechange = function(e) {if (xhr.readyState == 4)func(xhr.responseText);};\n" +
+                    "xhr.send();};\n" +
+                    "function call(url){document.getElementById('out').innerHTML='calcul ...';  httpGet(url,function(rep){document.getElementById('out').innerHTML=rep+'<br><br>'+document.getElementById('out').innerHTML;});}\n" +
+                    "</script>\n";
 
             html+="<script>var modele='5-60-9';var filter='PA';" +
-                    "function changeFilter(){filter=prompt(\"change filter\");show();}" +
-                    "function show(){httpGet('./size',function(s){document.getElementById('size').innerHTML='size:'+s});document.getElementById('modele').innerHTML='layers:'+modele;document.getElementById('titre').innerHTML='filter:'+filter;}" +
-                    "function changeModel(){modele=prompt(\"layers\");show();}" +
-                    "function loadStation(){window.open('../loadwithfilter/'+filter);}" +
-                    "function findModel(){iter=prompt('iterations');window.open('./search/'+iter);}" +
-                    "function train(){iter=prompt('iterations');window.open('../train/'+iter+'/'+modele);}" +
-                    "function evaluate(){window.open('../evaluate/'+modele);}" +
-                    "function toCSV(){window.open('./toCSV/'+modele);}" +
+                    "function changeFilter(){filter=prompt(\"change filter\");show();}\n" +
+                    "function show(){httpGet('./size',function(s){document.getElementById('size').innerHTML='size:'+s});document.getElementById('modele').innerHTML='layers:'+modele;document.getElementById('titre').innerHTML='filter:'+filter;}\n" +
+                    "function changeModel(){modele=prompt(\"layers\");show();}\n" +
+                    "function showStation(){call('/stations');}\n" +
+                    "function loadStation(){call('../loadwithfilter/'+filter);show();}\n" +
+                    "function findModel(){iter=prompt('iterations');call('./search/'+iter);}\n" +
+                    "function train(){iter=prompt('iterations');call('../train/'+iter+'/'+modele);}\n" +
+                    "function evaluate(){call('/evaluate/'+modele);}\n" +
+                    "function toCSV(){window.open('./toCSV/'+modele);}\n" +
                     "</script>";
 
 
@@ -312,7 +314,7 @@ public class Main {
             html+="<a href='javascript:loadStation()'>Add stations with filter</a><br>";
 
             html+="<h2>Show</h2>";
-            html+="<a href='./stations'>Stations list</a><br>";
+            html+="<a href='javascript:showStations()'>Stations list</a><br>";
             html+="<a href='./list'>List Files</a><br>";
             html+="<a href='./show'>Show inputs</a><br>";
             html+="<a href='./razstations'>Raz stations</a><br>";
@@ -329,9 +331,10 @@ public class Main {
             html+="<h2>Tools</h2>";
             html+="<a href='javascript:toCSV()'>CSV</a><br>";
             html+="<a href='localhost:4040'>Admin</a><br>";
+            html+="<a href='https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/'>Velib</a><br>";
             html+="<a href='./log'>Log</a><br>";
 
-            html+="<script>show();</script>";
+            html+="<script>show();</script><div style='width:100%;max-height:400px;background-color:grey;' id='out'></div>";
 
             return html;
         });
