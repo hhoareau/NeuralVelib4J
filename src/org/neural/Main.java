@@ -53,8 +53,6 @@ public class Main {
         logger.info("Lancement de l'environnement spark");
         //stations=new Datas(spark.getSession(),"./files",filter);
 
-        updMap();
-
         //Récupération du fichier
         final Runnable commandRefresh = new Runnable() {
             public void run() {
@@ -87,22 +85,21 @@ public class Main {
         scheduler.schedule(trainRefresh,10,TimeUnit.MINUTES);
 
 
-        Spark.get("/use/:layer/:station/:day/:hour/:minute/:soleil", (request, response) -> {
+        Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
             String html="";
             if(stations.getSize()==0)stations=new Datas(1.0,filter);
             Station s=stations.getStation(request.params("station"));
             if(s!=null){
                 Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
                 html+="Input : "+station.toVector().toString();
-                html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),s),Tools.asArray(request.params("layer"))));
+                html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),s)));
                 return html;
             }
             return html;
         });
 
-
         //test : http://localhost:9999/use/PARADIS/0/0
-        Spark.get("/use/:layer/:station/:delay/:soleil", (request, response) -> {
+        Spark.get("/use/:station/:delay/:soleil", (request, response) -> {
             String html="";
             if(stations.getSize()==0)stations=new Datas(1.0,filter);
 
@@ -111,7 +108,7 @@ public class Main {
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
                     html+="Input : "+station.toVector().toString()+"<br><br>";
-                    html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),station),Tools.asArray(request.params("layer"))));
+                    html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),station)));
                     return html;
             }
             return html;
@@ -123,12 +120,11 @@ public class Main {
 
         Spark.get("/load", (request, response) -> {
             Map<String,Double> data=Tools.getMeteo(new Date(System.currentTimeMillis()));
-            stations.add(Tools.getStations(Tools.getData(NOW_FILE,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"),null),spark.getSession());
-            return stations.toHTML(2000);
+            stations.add(Tools.getStations(Tools.getData(NOW_FILE,"./files/velib_"+System.currentTimeMillis()+".json"),data.get("temperature"),filter),spark.getSession());
+            return stations.getSize()+" stations loaded";
         });
 
-        Spark.get("/loadwithfilter/:filter", (request, response) -> {
-            filter=request.params("filter");
+        Spark.get("/loadwithfilter", (request, response) -> {
             stations=new Datas(spark.getSession(),"./files",filter);
             return stations.getSize();
         });
@@ -188,10 +184,13 @@ public class Main {
             return rc;
         });
 
+        Spark.get("/setfilter/:filter", (request, response) -> {
+            filter= request.params("filter");
+            return "filter="+filter;
+        });
 
         Spark.get("/setmodele/:layers", (request, response) -> {
-            spark.setModele(request.params("layers"));
-            updMap();
+            spark.setModele(new Station().colsName().length+"-"+request.params("layers")+"-9");
             return "ok";
         });
 
@@ -236,7 +235,7 @@ public class Main {
 
 
         Spark.get("/weights", (request, response) -> {
-            return spark.showWeights(null);
+            return spark.showWeights();
         });
 
         Spark.get("/log", (request, response) -> {
@@ -254,7 +253,7 @@ public class Main {
 
 
         Spark.get("/infos", (request, response) -> {
-            return stations.getSize()+";"+spark.getCurrentModele();
+            return stations.getSize()+";"+spark.getCurrentModele()+";"+filter;
         });
 
 

@@ -135,6 +135,7 @@ public class Datas {
 
 
     public Station getStation(String name) {
+        if(this.df==null)return null;
         List<Row> lr=this.df.filter(col("name").contains(name)).collectAsList();
         if(lr.size()>0)
             return new Station(lr.get(0));

@@ -7,9 +7,7 @@
 <body>
 
 <script>
-
     var infos={};
-    var filter="PA";
 
     function httpGet(service,func){
         var xhr = new XMLHttpRequest();xhr.open('GET', service, true);
@@ -36,28 +34,30 @@
 
 <script>
 
-    setInterval(function(){
-        document.getElementById("spark_ctrl").contentWindow.location.reload();
-    },2000);
+    //setInterval(function(){document.getElementById("spark_ctrl").contentWindow.location.reload();},2000);
 
     function show(){
         httpGet("/infos",function(rc){
             rc=String(rc);
             infos=rc.split(";");
-            document.getElementById("infos").innerHTML=infos[0]+" stations / Filter:"+filter+" / Current Model:"+infos[1];
+            document.getElementById("infos").innerHTML=infos[0]+" stations<br>Filter:"+infos[2]+"<br>Current Model:"+infos[1];
         });
     }
 
     function showStation(){call('/stations');}
 
+    function setFilter(){
+        filter=prompt("filter","paradis");
+        call("/setfilter/"+filter);
+    }
+
     function loadStationNow(){
-        call('../load');
+        call('/load');
     }
 
     function loadStation(){
-        filter=prompt("change filter",filter);
-        log("load station with filter "+filter);
-        call('../loadwithfilter/'+filter);
+        log("load station with filter ");
+        call('/loadwithfilter');
     }
 
     function findModel(){
@@ -74,9 +74,8 @@
         call('./show');
     }
 
-
     function changeModel(){
-        call('setmodele/'+prompt('modele',"5-60-9"));
+        call('setmodele/'+prompt('modele',"2-2"));
     }
 
     function train(){
@@ -86,38 +85,40 @@
     function evaluate(){call('/evaluate');}
     function toCSV(){window.open('./toCSV');}
 
+    show();
+
 </script>
 
- <table>
+ <table style="width:100%">
      <tr><td>
          <div id="infos"></div>
          <br>
      </td></tr>
      <tr>
-         <td>
-             <h2><div  style='display:inline' id='titre'></div>&nbsp;<div  style='display:inline' id='size'></div></h2>
+         <td style="width:200px">
+             <h2>Stations</h2>
              <a href='javascript:loadStationNow()'>Add stations for now</a><br>
              <a href='javascript:loadStation()'>Add stations with filter</a><br>
+             <a href='javascript:setFilter()'>Set filter</a><br>
 
              <h2>Show</h2>
              <a href='javascript:showStations()'>Stations list</a><br>
              <a href='javascript:listFile()'>List Files</a><br>
              <a href='javascript:showInput()'>Show inputs</a><br>
-             <a href='./razstations'>Raz stations</a><br>
 
              <h2>Use modele</h2>
-             <a href='javascript:findModel()'>Search model</a><br>
-             <a href='javascript:changeModel()'>Change model</a><br>
+             <a href='javascript:changeModel()'>Set model</a><br>
+             <a href='javascript:findModel()'>Search best model</a><br>
              <a href='javascript:train()'>Train model</a><br>
              <a href='javascript:evaluate()'>Evaluate modele</a><br>
-             <a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>
-             <a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>
+             <a href='./use/10019%20-%20PARADIS/0/0'>Use with station/delay/soleil</a><br>
+             <a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use with station/day/hour/minute/soleil</a><br>
              <a href='./weights'>Weights</a><br>
              <a href='./raz'>Raz</a><br>
 
              <h2>Tools</h2>
              <a href='javascript:toCSV()'>CSV</a><br>
-             <a href='localhost:4040'>Admin</a><br>
+             <a href='localhost:4040' target="_blank">Show spark activity</a><br>
              <a href='https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/'>Velib</a><br>
              <a href='./log'>Log</a><br>
          </td>

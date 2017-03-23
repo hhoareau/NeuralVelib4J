@@ -165,12 +165,7 @@ public class MySpark {
 
 
     public String showWeights() throws IOException {
-        return showWeights(this.mlp);
-    }
-
-
-    public String showWeights(MultilayerPerceptronClassifier mlp) throws IOException {
-        return mlp.getInitialWeights().toString().replaceAll(",","<br>");
+        return this.mlp.getInitialWeights().toString().replaceAll(",","<br>");
     }
 
 
@@ -185,6 +180,8 @@ public class MySpark {
     }
 
     public String evaluate(Dataset<Row> r) throws IOException {
+        if(this.mlp==null)return null;
+
         MultilayerPerceptronClassificationModel model = this.mlp.fit(r);
         Dataset<Row> result = model.transform(r);
         Dataset<Row> predictionAndLabels = result.select("prediction", "label");
@@ -222,8 +219,8 @@ public class MySpark {
 
 
 
-    public String predict(Datas d,int[] layer) throws IOException, ParseException {
-        MultilayerPerceptronClassificationModel model = createPerceptron(0, layer).fit(d.getData());
+    public String predict(Datas d) throws IOException, ParseException {
+        MultilayerPerceptronClassificationModel model = this.mlp.fit(d.createTrain());
         Dataset<Row> a = model.transform(d.createTrain());
         return a.showString(1,100);
     }
