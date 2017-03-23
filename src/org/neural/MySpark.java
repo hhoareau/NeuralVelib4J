@@ -33,7 +33,7 @@ public class MySpark {
 
     //private Pipeline pipeline=null;
     private SparkSession spark=null;
-    private MultilayerPerceptronClassificationModel model=null;
+    private MultilayerPerceptronClassifier mlp=null;
     private CrossValidator crossValidator=null;
     private static Logger logger = Logger.getLogger(String.valueOf(MySpark.class));
     private int[] layers=null;
@@ -93,7 +93,7 @@ public class MySpark {
         for(Double d:model.weights().toArray())s+=d+";";
         f.write(s.getBytes());
         f.close();
-        model.write().overwrite().save("mlp.model");
+        //model.write().overwrite().save("mlp.model");
     }
 
 
@@ -121,22 +121,19 @@ public class MySpark {
         return mlp;
     }
 
-
-    public void initModel() throws IOException {
-        MultilayerPerceptronClassifier mlp = createPerceptron(0, (int[]) null);
-    }
-
     public String findModel(Datas datas,Integer iter,Collection<int[]> layers) throws IOException {
         Dataset<Row>[] dts = datas.createTrain().randomSplit(new double[]{0.6, 0.4});
         createPerceptron(iter,layers);
         PipelineModel pm= (PipelineModel) crossValidator.fit(dts[0].cache()).bestModel();
-        this.model= (MultilayerPerceptronClassificationModel) pm.stages()[0] ;
-        save(this.model);
-        this.layers=this.model.layers();
-
+        MultilayerPerceptronClassificationModel model = (MultilayerPerceptronClassificationModel) pm.stages()[0];;
+        save(model);
+        this.layers=model.layers();
+        this.mlp=createPerceptron(1000,model.layers());
         return evaluate(dts[1]);
     }
 
+
+    /*
     public String train(Datas datas,Integer iter,Collection<int[]> layers) throws IOException {
         Dataset<Row>[] dts = datas.createTrain().randomSplit(new double[]{0.6, 0.4});
         createPerceptron(iter,layers);
@@ -151,29 +148,29 @@ public class MySpark {
 
         return evaluate(dts[1]);
     }
+    */
 
-    public String train(Datas datas,Integer iter,int[] layer) throws IOException {
+    public String train(Datas datas,Integer iter) throws IOException {
         Dataset<Row>[] dts = datas.createTrain().randomSplit(new double[]{0.6, 0.4});
-        MultilayerPerceptronClassifier mlp = createPerceptron(iter, layer);
 
         this.onTraining=true;
-        this.model=mlp.fit(dts[0]);
+        MultilayerPerceptronClassificationModel model = this.mlp.fit(dts[0]);
         this.onTraining=false;
 
-        save(this.model);
+        save(model);
         String rc=evaluate(dts[1]);
         logger.warning("Evaluation "+rc);
         return rc;
     }
 
+
     public String showWeights() throws IOException {
-        return showWeights(this.model);
+        return showWeights(this.mlp);
     }
 
 
-    public String showWeights(MultilayerPerceptronClassificationModel model) throws IOException {
-        if(model==null)return "you must build a model before ask weights";
-        return model.weights().toString().replaceAll(",","<br>");
+    public String showWeights(MultilayerPerceptronClassifier mlp) throws IOException {
+        return mlp.getInitialWeights().toString().replaceAll(",","<br>");
     }
 
 
@@ -182,8 +179,14 @@ public class MySpark {
     }
 
 
+    public String getCurrentModele(){
+        if(this.mlp==null)return null;
+        return Arrays.toString(this.mlp.getLayers());
+    }
+
     public String evaluate(Dataset<Row> r) throws IOException {
-        Dataset<Row> result = this.model.transform(r);
+        MultilayerPerceptronClassificationModel model = this.mlp.fit(r);
+        Dataset<Row> result = model.transform(r);
         Dataset<Row> predictionAndLabels = result.select("prediction", "label");
         predictionAndLabels.show(30,false);
         String rc="";
@@ -220,8 +223,8 @@ public class MySpark {
 
 
     public String predict(Datas d,int[] layer) throws IOException, ParseException {
-        if(this.model==null)this.model= createPerceptron(0,layer).fit(d.getData());
-        Dataset<Row> a = this.model.transform(d.createTrain());
+        MultilayerPerceptronClassificationModel model = createPerceptron(0, layer).fit(d.getData());
+        Dataset<Row> a = model.transform(d.createTrain());
         return a.showString(1,100);
     }
 
@@ -229,12 +232,11 @@ public class MySpark {
     public String predictDetail(Vector v) throws IOException {
         Row r= RowFactory.create(v.toArray());
         Dataset<Row> f=spark.emptyDataFrame();
-        return this.model.transform(f).toString();
+        return mlp.fit(this.getSession().emptyDataFrame()).transform(f).toString();
     }
 
 
     public String evaluate(Datas stations) throws IOException {
-        if(this.model==null)this.model=MultilayerPerceptronClassificationModel.load("mlp.model");
         return this.evaluate(stations.createTrain().randomSplit(new double[]{0.3,0.6})[1]);
     }
 
@@ -244,15 +246,18 @@ public class MySpark {
         return rc;
     }
 
-    public Dataset<Row> use(Dataset<Row> input,int[] layer) throws IOException {
-        input.show(20,false);
-        if(this.model==null)this.model=createPerceptron(0,layer).fit(input);
-        Dataset<Row> rc=this.model.transform(input);
+    public Dataset<Row> use(Dataset<Row> input) throws IOException {
+        Dataset<Row> rc=this.mlp.fit(input).transform(input);
         rc.show(20,false);
         return rc;
     }
 
     public boolean onTrain() {
         return this.onTraining;
+    }
+
+
+    public void setModele(String layers) throws IOException {
+        this.mlp=createPerceptron(100,Tools.asArray(layers));
     }
 }

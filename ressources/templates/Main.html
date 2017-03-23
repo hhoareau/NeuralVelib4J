@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<script>
+
+    var infos={};
+    var filter="PA";
+
+    function httpGet(service,func){
+        var xhr = new XMLHttpRequest();xhr.open('GET', service, true);
+        xhr.onreadystatechange = function(e) {if (xhr.readyState == 4)func(xhr.responseText);};
+        xhr.send();
+    }
+
+    function log(text) {
+        document.getElementById("infos").scrollTop = 0;
+        document.getElementById('out').innerHTML = text+"<br>"+ document.getElementById('out').innerHTML;
+    }
+
+    function call(url){
+        document.getElementById("infos").scrollTop=0;
+        document.getElementById('out').innerHTML='calcul ...<br><br>'+document.getElementById('out').innerHTML;
+        httpGet(url,
+                function(rep){
+                    document.getElementById('out').innerHTML=rep+'<br><br>'+document.getElementById('out').innerHTML
+                    show();
+                }
+        );
+    }
+</script>
+
+<script>
+
+    setInterval(function(){
+        document.getElementById("spark_ctrl").contentWindow.location.reload();
+    },2000);
+
+    function show(){
+        httpGet("/infos",function(rc){
+            rc=String(rc);
+            infos=rc.split(";");
+            document.getElementById("infos").innerHTML=infos[0]+" stations / Filter:"+filter+" / Current Model:"+infos[1];
+        });
+    }
+
+    function showStation(){call('/stations');}
+
+    function loadStationNow(){
+        call('../load');
+    }
+
+    function loadStation(){
+        filter=prompt("change filter",filter);
+        log("load station with filter "+filter);
+        call('../loadwithfilter/'+filter);
+    }
+
+    function findModel(){
+        log("Find the best model");
+        call('./search/'+prompt('iterations',"100"));
+    }
+
+    function listFile(){
+        log("List all the files");
+        call('./list');
+    }
+
+    function showInput(){
+        call('./show');
+    }
+
+
+    function changeModel(){
+        call('setmodele/'+prompt('modele',"5-60-9"));
+    }
+
+    function train(){
+        call('../train/'+prompt('iterations',"1000"));
+    }
+
+    function evaluate(){call('/evaluate');}
+    function toCSV(){window.open('./toCSV');}
+
+</script>
+
+ <table>
+     <tr><td>
+         <div id="infos"></div>
+         <br>
+     </td></tr>
+     <tr>
+         <td>
+             <h2><div  style='display:inline' id='titre'></div>&nbsp;<div  style='display:inline' id='size'></div></h2>
+             <a href='javascript:loadStationNow()'>Add stations for now</a><br>
+             <a href='javascript:loadStation()'>Add stations with filter</a><br>
+
+             <h2>Show</h2>
+             <a href='javascript:showStations()'>Stations list</a><br>
+             <a href='javascript:listFile()'>List Files</a><br>
+             <a href='javascript:showInput()'>Show inputs</a><br>
+             <a href='./razstations'>Raz stations</a><br>
+
+             <h2>Use modele</h2>
+             <a href='javascript:findModel()'>Search model</a><br>
+             <a href='javascript:changeModel()'>Change model</a><br>
+             <a href='javascript:train()'>Train model</a><br>
+             <a href='javascript:evaluate()'>Evaluate modele</a><br>
+             <a href='./use/10019%20-%20PARADIS/0/0'>Use</a><br>
+             <a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use avec station/day/hour/minute/soleil</a><br>
+             <a href='./weights'>Weights</a><br>
+             <a href='./raz'>Raz</a><br>
+
+             <h2>Tools</h2>
+             <a href='javascript:toCSV()'>CSV</a><br>
+             <a href='localhost:4040'>Admin</a><br>
+             <a href='https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/'>Velib</a><br>
+             <a href='./log'>Log</a><br>
+         </td>
+         <td>
+             <br>
+             <div style='width:100%;height:600px;overflow-y:auto;' id='out'></div>
+         </td>
+     </tr>
+ </table>
+
+</body>
+</html>

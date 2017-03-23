@@ -86,6 +86,7 @@ public class Tools {
 
 
     public static List<Station> getStations(JsonNode jsonNode,Double temperature,String filter) throws ParseException {
+        if(jsonNode==null)return null;
         List<Station> rc=new ArrayList<>();
         Iterator<JsonNode> ite=jsonNode.getElements();
         if(ite!=null)
@@ -93,7 +94,8 @@ public class Tools {
                 JsonNode item=ite.next().get("fields");
                 if(item!=null && item.has("status") && item.get("status").asText().equals("OPEN")){
                     Station s=new Station(item, temperature);
-                    if(filter==null || s.getName().indexOf(filter)>-1)rc.add(s);
+                    if(filter==null || s.getName().toLowerCase().indexOf(filter.toLowerCase())>-1)
+                        rc.add(s);
                 }
             }
         return rc;
@@ -113,7 +115,6 @@ public class Tools {
         rc+="</table>";
         return rc;
     }
-
 
 
     //https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json
@@ -180,6 +181,12 @@ public class Tools {
     }
 
 
+    public static int[] asArray(String s){
+        int[] rc=new int[s.split("-").length];
+        for(int i=0;i<rc.length;i++)
+            rc[i]= Integer.parseInt(s.split("-")[i]);
+        return rc;
+    }
 
 
     //https://donneespubliques.meteofrance.fr/?fond=donnee_libre&prefixe=Txt%2FSynop%2Fsynop&extension=csv&date=20170221&reseau=09

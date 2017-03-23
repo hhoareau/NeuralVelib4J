@@ -34,13 +34,16 @@ public class Datas {
         for (File f : new File(path).listFiles())
             if(f.getName().indexOf(".json")>0){
                 logger.warning("Chargement de "+f.getName());
-                stats.addAll(Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0,filter));
-                if(stats.size()>100000){
-                    add(stats, spark);
-                    size+=stats.size();
-                    df=df.distinct();
-                    df.persist();
-                    stats.clear();
+                List<Station> temp = Tools.getStations(Tools.getData(f.getAbsolutePath(), null), 1.0, filter);
+                if(temp!=null){
+                    stats.addAll(temp);
+                    if(stats.size()>100000){
+                        add(stats, spark);
+                        size+=stats.size();
+                        df=df.distinct();
+                        df.persist();
+                        stats.clear();
+                    }
                 }
             }
 
@@ -52,7 +55,7 @@ public class Datas {
 
     public Datas(SparkSession spark) {
         logger.setLevel(Level.INFO);
-        this.df=spark.emptyDataFrame();
+        this.df=null;
         this.size=0L;
     }
 
@@ -116,6 +119,7 @@ public class Datas {
             else
                 df=df.union(rs);
         }
+        this.size+=stations.size();
         df.persist(StorageLevel.MEMORY_ONLY());
     }
 
@@ -165,7 +169,7 @@ public class Datas {
 
 
     public String toCSV(MySpark spark,String sepCol,String sepLine,int[] layer) throws IOException {
-        Dataset<Row> result = spark.use(this.createTrain(),layer);
+        Dataset<Row> result = spark.use(this.createTrain());
 
         result.show(20,false);
 

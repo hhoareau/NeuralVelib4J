@@ -1,7 +1,7 @@
 <component name="ArtifactManager">
-  <artifact name="NeuralVelib4J:jar">
-    <output-path>$PROJECT_DIR$/docker-dir</output-path>
-    <root id="root">
+  <artifact type="jar" name="NeuralVelib4J">
+    <output-path>$PROJECT_DIR$/out</output-path>
+    <root id="archive" name="NeuralVelib4J.jar">
       <element id="archive" name="NeuralVelib4J.jar">
         <element id="module-output" name="NeuralVelib4J" />
       </element>
@@ -10,6 +10,10 @@
       <element id="library" level="project" name="org.apache.spark:spark-mllib_2.10:2.1.0" />
       <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
       <element id="library" level="project" name="org.nd4j:nd4j-netlib-blas:0.4-rc3.6" />
+      <element id="library" level="project" name="com.sparkjava:spark-template-thymeleaf:2.5.5" />
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
+      </element>
     </root>
   </artifact>
 </component>
