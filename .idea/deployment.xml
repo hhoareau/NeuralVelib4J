@@ -2,31 +2,10 @@
 <project version="4">
   <component name="PublishConfigData" serverName="pi2" autoUploadExternalChanges="true">
     <serverData>
-      <paths name="pi2">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
       <paths name="pi2 (project level)">
         <serverdata>
           <mappings>
             <mapping deploy="/docker-dir" local="$PROJECT_DIR$/docker-dir" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="pi3">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="pi3 root">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

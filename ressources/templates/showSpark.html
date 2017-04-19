@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ShowSpark</title>
+</head>
+<body>
+<iframe src="http://localhost:4040" style="width: 100%;height: 80%;" id="frmSpark"></iframe>
+<script>
+    setInterval(function(){
+        document.getElementById("frmSpark").contentDocument.location.reload();
+    },2000);
+</script>
+</body>
+</html>

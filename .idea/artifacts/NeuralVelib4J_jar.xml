@@ -1,6 +1,6 @@
 <component name="ArtifactManager">
   <artifact name="NeuralVelib4J:jar">
-    <output-path>$PROJECT_DIR$/out/artifacts/NeuralVelib4J_jar</output-path>
+    <output-path>$PROJECT_DIR$/out/artifacts</output-path>
     <root id="root">
       <element id="archive" name="NeuralVelib4J.jar">
         <element id="module-output" name="NeuralVelib4J" />

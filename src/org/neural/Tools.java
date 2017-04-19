@@ -59,6 +59,23 @@ public class Tools {
     }
 
 
+    public static String toCSV(Dataset<Row> datas,String sepCol,String sepLine){
+        String s="";
+        for(String name:datas.columns())
+            s+=name+sepCol;
+        s+=sepLine;
+
+        List<Row> rows = datas.orderBy("name", "x").collectAsList();
+        int size=rows.size();
+        for(Row r:rows){
+            size--;
+            String line="";
+            for(int i=0;i<r.size();i++)line+=String.valueOf(r.get(i))+sepCol;
+            s+=line.substring(0,line.length()-1)+sepLine;
+        }
+        return s;
+    }
+
 
     public static Dataset<Row> createTrain(Dataset<Row> dt) throws IOException {
         VectorAssembler assembler = new VectorAssembler()

@@ -1,5 +1,6 @@
 package org.neural;
 
+import org.codehaus.jackson.JsonNode;
 import spark.ModelAndView;
 import spark.Spark;
 import spark.template.thymeleaf.ThymeleafTemplateEngine;
@@ -16,6 +17,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 
+import static spark.Spark.before;
+import static spark.Spark.options;
+
 
 public class Main {
     private static final String NOW_FILE = "https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/download?format=json";
@@ -27,6 +31,33 @@ public class Main {
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static Map map=new HashMap<>();
+
+    // Enables CORS on requests. This method is an initialization method and should be called once.
+    private static void enableCORS(final String origin, final String methods, final String headers) {
+
+        options("/*", (request, response) -> {
+
+            String accessControlRequestHeaders = request.headers("Access-Control-Request-Headers");
+            if (accessControlRequestHeaders != null) {
+                response.header("Access-Control-Allow-Headers", accessControlRequestHeaders);
+            }
+
+            String accessControlRequestMethod = request.headers("Access-Control-Request-Method");
+            if (accessControlRequestMethod != null) {
+                response.header("Access-Control-Allow-Methods", accessControlRequestMethod);
+            }
+
+            return "OK";
+        });
+
+        before((request, response) -> {
+            response.header("Access-Control-Allow-Origin", origin);
+            response.header("Access-Control-Request-Method", methods);
+            response.header("Access-Control-Allow-Headers", headers);
+            // Note: this may or may not be necessary in your particular application
+            response.type("application/json");
+        });
+    }
 
     public static void updMap(){
         map.put("filter",filter);
@@ -41,16 +72,19 @@ public class Main {
 
         Integer port=9999;
         if(args.length>0)port= Integer.valueOf(args[0]);
-        logger.info("Ouverture du port "+port);
         Spark.port(port);
+        logger.warning("Ouverture du port "+port);
 
         File d=new File("./files");
-        if(!d.exists())d.mkdir();
+        if(!d.exists()){
+            logger.warning("Création du répertoire de récupération des fichiers");
+            d.mkdir();
+        }
 
-        logger.info("Creation d'un certificat pour la navigation https");
+        logger.warning("Creation d'un certificat pour la navigation https");
         Tools.createCertificate();
 
-        logger.info("Lancement de l'environnement spark");
+        logger.warning("Lancement de l'environnement spark");
         //stations=new Datas(spark.getSession(),"./files",filter);
 
         //Récupération du fichier
@@ -59,8 +93,9 @@ public class Main {
                 try {
                     String horaire=new SimpleDateFormat("hh:mm").format(new Date(System.currentTimeMillis()));
                     if(horaire.endsWith("0") || horaire.endsWith("5")){
-                        logger.info("Récuperation d'un fichier velib");
-                        Tools.getData("./files/velib_"+System.currentTimeMillis()+".json");
+                        logger.warning("Récuperation d'un fichier velib");
+                        JsonNode result = Tools.getData("./files/velib_" + System.currentTimeMillis() + ".json");
+                        if(result!=null)logger.warning("Transfert vers disque");
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -68,6 +103,7 @@ public class Main {
                 scheduler.schedule(this,1, TimeUnit.MINUTES);
             }
         };
+        logger.warning("Installation de la tache de récupération des velib");
         scheduler.schedule(commandRefresh,1, TimeUnit.MINUTES);
 
         final Runnable trainRefresh= new Runnable() {
@@ -84,6 +120,12 @@ public class Main {
         };
         scheduler.schedule(trainRefresh,10,TimeUnit.MINUTES);
 
+        enableCORS("*","get","");
+
+        Spark.get("/usecsv", (request, response) -> {
+            response.type("text/csv");
+            return Tools.toCSV(spark.predict(stations),";","\n");
+        });
 
         Spark.get("/use/:station/:day/:hour/:minute/:soleil", (request, response) -> {
             String html="";
@@ -92,7 +134,7 @@ public class Main {
             if(s!=null){
                 Station station=new Station(s,Integer.valueOf(request.params("day")), Integer.valueOf(request.params("hour")),Integer.valueOf(request.params("minute")),Double.valueOf(request.params("soleil")));
                 html+="Input : "+station.toVector().toString();
-                html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),s)));
+                html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),s)).toString());
                 return html;
             }
             return html;
@@ -108,7 +150,7 @@ public class Main {
                     Long date=System.currentTimeMillis()+Long.valueOf(request.params("delay"))*1000*60;
                     Station station=new Station(s,date,Double.valueOf(request.params("soleil")));
                     html+="Input : "+station.toVector().toString()+"<br><br>";
-                    html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),station)));
+                    html+=Tools.DatasetToHTML(spark.predict(new Datas(spark.getSession(),station)).toString());
                     return html;
             }
             return html;
@@ -269,7 +311,6 @@ public class Main {
         });
 
         Spark.get("/", (request, response) -> new ModelAndView(map,"Main"),new ThymeleafTemplateEngine());
+        Spark.get("/showSpark", (request, response) -> new ModelAndView(map,"showSpark"),new ThymeleafTemplateEngine());
     }
-
-
 }

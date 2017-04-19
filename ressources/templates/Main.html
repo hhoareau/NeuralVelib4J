@@ -84,6 +84,7 @@
 
     function evaluate(){call('/evaluate');}
     function toCSV(){window.open('./toCSV');}
+    function useCSV(){window.open('./usecsv');}
 
     show();
 
@@ -113,12 +114,13 @@
              <a href='javascript:evaluate()'>Evaluate modele</a><br>
              <a href='./use/10019%20-%20PARADIS/0/0'>Use with station/delay/soleil</a><br>
              <a href='./use/10019%20-%20PARADIS/6/18/25/0'>Use with station/day/hour/minute/soleil</a><br>
+             <a href='javascript:useCSV()'>Export use with CSV</a><br>
              <a href='./weights'>Weights</a><br>
              <a href='./raz'>Raz</a><br>
 
              <h2>Tools</h2>
              <a href='javascript:toCSV()'>CSV</a><br>
-             <a href='localhost:4040' target="_blank">Show spark activity</a><br>
+             <a href='./showSpark.html' target="_blank">Show spark activity</a><br>
              <a href='https://opendata.paris.fr/explore/dataset/stations-velib-disponibilites-en-temps-reel/'>Velib</a><br>
              <a href='./log'>Log</a><br>
          </td>
