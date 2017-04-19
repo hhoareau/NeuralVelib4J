@@ -1,15 +1,15 @@
 <component name="ArtifactManager">
-  <artifact name="NeuralVelib4J:jar">
+  <artifact name="NeuralVelib4J">
     <output-path>$PROJECT_DIR$/out/artifacts</output-path>
     <root id="root">
       <element id="archive" name="NeuralVelib4J.jar">
         <element id="module-output" name="NeuralVelib4J" />
       </element>
-      <element id="library" level="project" name="org.apache.spark:spark-mllib_2.10:2.1.0" />
-      <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
-      <element id="library" level="project" name="com.sparkjava:spark-template-thymeleaf:Latest" />
-      <element id="library" level="project" name="com.sparkjava:spark-core:Latest" />
       <element id="library" level="project" name="org.apache.spark:spark-sql_2.10:Latest" />
+      <element id="library" level="project" name="com.sparkjava:spark-template-thymeleaf:Latest" />
+      <element id="library" level="project" name="org.apache.spark:spark-core_2.10:Latest" />
+      <element id="library" level="project" name="com.sparkjava:spark-core:Latest" />
+      <element id="library" level="project" name="org.apache.spark:spark-mllib_2.10:2.1.0" />
     </root>
   </artifact>
 </component>
