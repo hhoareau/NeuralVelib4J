@@ -2,6 +2,7 @@
 #Remplacement : sudo docker ps
 #Construction : cd ./NeuralVelib/docker-dir && sudo docker build -t hhoareau/neural-velib .
 #Installation : sudo docker run --restart=always -d -p 9999:9999 -p 9998:4040 -v /home/pi/neural-velib:/home/files hhoareau/neural-velib
+#archivage : sudo 7zr a velib-data.7z *.json
 FROM jsurf/rpi-java
 ADD *.jar /home/
 RUN apt-get update

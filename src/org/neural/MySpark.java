@@ -221,7 +221,8 @@ public class MySpark {
 
     public Dataset<Row> predict(Datas d) throws IOException, ParseException {
         MultilayerPerceptronClassificationModel model = this.mlp.fit(d.createTrain());
-        return model.transform(d.createTrain());
+        Dataset<Row> rc = model.transform(d.createTrain());
+        return rc;
     }
 
 

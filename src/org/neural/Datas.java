@@ -66,7 +66,7 @@ public class Datas {
     }
 
     public Dataset<Row> createTrain() throws IOException {
-        df.show(30,false);
+        //df.show(30,false);
         Dataset<Row> rc=df.drop(new String[]{"lg","lt","dtUpdate","nPlace","nBike"});
 
         rc = new StringIndexer().setInputCol("id").setOutputCol("id_index").fit(rc).transform(rc);
@@ -167,7 +167,6 @@ public class Datas {
     }
 
     public Dataset<Row> getData() {return this.df;}
-
 
     public String toCSV(MySpark spark,String sepCol,String sepLine,int[] layer) throws IOException {
         Dataset<Row> result = spark.use(this.createTrain());

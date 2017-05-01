@@ -34,7 +34,6 @@ public class Main {
 
     // Enables CORS on requests. This method is an initialization method and should be called once.
     private static void enableCORS(final String origin, final String methods, final String headers) {
-
         options("/*", (request, response) -> {
 
             String accessControlRequestHeaders = request.headers("Access-Control-Request-Headers");
@@ -120,7 +119,7 @@ public class Main {
         };
         scheduler.schedule(trainRefresh,10,TimeUnit.MINUTES);
 
-        enableCORS("*","get","");
+        //enableCORS("*","get","");
 
         Spark.get("/usecsv", (request, response) -> {
             response.type("text/csv");
@@ -232,8 +231,9 @@ public class Main {
         });
 
         Spark.get("/setmodele/:layers", (request, response) -> {
-            spark.setModele(new Station().colsName().length+"-"+request.params("layers")+"-9");
-            return "ok";
+            String layers = request.params("layers");
+            spark.setModele(new Station().colsName().length+"-"+layers+"-9");
+            return "Model "+layers+" loaded with weights";
         });
 
         Spark.get("/train/:iter", (request, response) -> {
@@ -310,7 +310,8 @@ public class Main {
             return "ok";
         });
 
-        Spark.get("/", (request, response) -> new ModelAndView(map,"Main"),new ThymeleafTemplateEngine());
+        Spark.get("/menu", (request, response) -> new ModelAndView(map,"Main"),new ThymeleafTemplateEngine());
+
         Spark.get("/showSpark", (request, response) -> new ModelAndView(map,"showSpark"),new ThymeleafTemplateEngine());
     }
 }
